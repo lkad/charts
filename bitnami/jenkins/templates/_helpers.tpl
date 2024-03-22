@@ -1,3 +1,8 @@
+{{/*
+Copyright VMware, Inc.
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
 {{/* vim: set filetype=mustache: */}}
 
 {{/*
@@ -25,7 +30,7 @@ Return the proper image name (for the init container volume-permissions image)
 Return the proper Docker Image Registry Secret Names
 */}}
 {{- define "jenkins.imagePullSecrets" -}}
-{{- include "common.images.pullSecrets" (dict "images" (list .Values.image .Values.volumePermissions.image) "global" .Values.global) -}}
+{{- include "common.images.renderPullSecrets" (dict "images" (list .Values.image .Values.volumePermissions.image) "context" $) -}}
 {{- end -}}
 
 {{/*
@@ -84,6 +89,34 @@ Return the Jenkins JKS password secret name
     {{- printf "%s" (tpl $secretName $) -}}
 {{- else -}}
     {{- printf "%s-tls-pass" (include "common.names.fullname" .) -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+ We need to adapt the basic Kubernetes resource object to Jenkins agent configuration
+*/}}
+{{- define "jenkins.agent.resources" -}}
+{{ $resources := (dict "limits" (dict) "requests" (dict)) }}
+{{- if .Values.agent.resources -}}
+    {{ $resources = .Values.agent.resources -}}
+{{- else if ne .Values.agent.resourcesPreset "none" -}}
+    {{ $resources = include "common.resources.preset" (dict "type" .Values.agent.resourcesPreset) | fromYaml -}}
+{{- end -}}
+{{- if $resources.limits }}
+{{- if $resources.limits.cpu }}
+resourceLimitCpu: {{ $resources.limits.cpu }}
+{{- end }}
+{{- if $resources.limits.memory }}
+resourceLimitMemory: {{ $resources.limits.memory }}
+{{- end }}
+{{- end }}
+{{- if $resources.requests }}
+{{- if $resources.requests.cpu }}
+resourceRequestCpu: {{ $resources.requests.cpu }}
+{{- end }}
+{{- if $resources.requests.memory }}
+resourceRequestMemory: {{ $resources.requests.memory }}
+{{- end }}
 {{- end -}}
 {{- end -}}
 

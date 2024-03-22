@@ -1,15 +1,19 @@
+{{- /*
+Copyright VMware, Inc.
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
 {{- if .Values.notificationController.enabled }}
 apiVersion: {{ include "common.capabilities.deployment.apiVersion" . }}
 kind: Deployment
 metadata:
   name: {{ template "flux.notification-controller.fullname" . }}
   namespace: {{ include "common.names.namespace" . | quote }}
-  labels: {{- include "common.labels.standard" . | nindent 4 }}
+  {{- $versionLabel := dict "app.kubernetes.io/version" ( include "common.images.version" ( dict "imageRoot" .Values.notificationController.image "chart" .Chart ) ) }}
+  {{- $labels := include "common.tplvalues.merge" ( dict "values" ( list .Values.commonLabels $versionLabel ) "context" . ) }}
+  labels: {{- include "common.labels.standard" ( dict "customLabels" $labels "context" $ ) | nindent 4 }}
     app.kubernetes.io/part-of: flux
     app.kubernetes.io/component: notification-controller
-    {{- if .Values.commonLabels }}
-    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
-    {{- end }}
   {{- if .Values.commonAnnotations }}
   annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
   {{- end }}
@@ -20,25 +24,22 @@ spec:
   {{- if .Values.notificationController.updateStrategy }}
   strategy: {{- toYaml .Values.notificationController.updateStrategy | nindent 4 }}
   {{- end }}
+  {{- $podLabels := include "common.tplvalues.merge" ( dict "values" ( list .Values.notificationController.podLabels .Values.commonLabels $versionLabel ) "context" . ) }}
   selector:
-    matchLabels: {{- include "common.labels.matchLabels" . | nindent 6 }}
+    matchLabels: {{- include "common.labels.matchLabels" ( dict "customLabels" $podLabels "context" $ ) | nindent 6 }}
       app.kubernetes.io/component: notification-controller
   template:
     metadata:
       {{- if .Values.notificationController.podAnnotations }}
       annotations: {{- include "common.tplvalues.render" (dict "value" .Values.notificationController.podAnnotations "context" $) | nindent 8 }}
       {{- end }}
-      labels: {{- include "common.labels.standard" . | nindent 8 }}
+      labels: {{- include "common.labels.standard" ( dict "customLabels" $podLabels "context" $ ) | nindent 8 }}
+        app.kubernetes.io/part-of: flux
         app.kubernetes.io/component: notification-controller
-        {{- if .Values.notificationController.podLabels }}
-        {{- include "common.tplvalues.render" (dict "value" .Values.notificationController.podLabels "context" $) | nindent 8 }}
-        {{- end }}
-        {{- if .Values.commonLabels }}
-        {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 8 }}
-        {{- end }}
     spec:
       serviceAccountName: {{ template "flux.notification-controller.serviceAccountName" . }}
       {{- include "flux.imagePullSecrets" . | nindent 6 }}
+      automountServiceAccountToken: {{ .Values.notificationController.automountServiceAccountToken }}
       {{- if .Values.notificationController.hostAliases }}
       hostAliases: {{- include "common.tplvalues.render" (dict "value" .Values.notificationController.hostAliases "context" $) | nindent 8 }}
       {{- end }}
@@ -46,8 +47,8 @@ spec:
       affinity: {{- include "common.tplvalues.render" ( dict "value" .Values.notificationController.affinity "context" $) | nindent 8 }}
       {{- else }}
       affinity:
-        podAffinity: {{- include "common.affinities.pods" (dict "type" .Values.notificationController.podAffinityPreset "component" "notification-controller" "context" $) | nindent 10 }}
-        podAntiAffinity: {{- include "common.affinities.pods" (dict "type" .Values.notificationController.podAntiAffinityPreset "component" "notification-controller" "context" $) | nindent 10 }}
+        podAffinity: {{- include "common.affinities.pods" (dict "type" .Values.notificationController.podAffinityPreset "component" "notification-controller" "customLabels" $podLabels "context" $) | nindent 10 }}
+        podAntiAffinity: {{- include "common.affinities.pods" (dict "type" .Values.notificationController.podAntiAffinityPreset "component" "notification-controller" "customLabels" $podLabels "context" $) | nindent 10 }}
         nodeAffinity: {{- include "common.affinities.nodes" (dict "type" .Values.notificationController.nodeAffinityPreset.type "key" .Values.notificationController.nodeAffinityPreset.key "values" .Values.notificationController.nodeAffinityPreset.values) | nindent 10 }}
       {{- end }}
       {{- if .Values.notificationController.nodeSelector }}
@@ -66,7 +67,7 @@ spec:
       topologySpreadConstraints: {{- include "common.tplvalues.render" (dict "value" .Values.notificationController.topologySpreadConstraints "context" .) | nindent 8 }}
       {{- end }}
       {{- if .Values.notificationController.podSecurityContext.enabled }}
-      securityContext: {{- omit .Values.notificationController.podSecurityContext "enabled" | toYaml | nindent 8 }}
+      securityContext: {{- include "common.compatibility.renderSecurityContext" (dict "secContext" .Values.notificationController.podSecurityContext "context" $) | nindent 8 }}
       {{- end }}
       {{- if .Values.notificationController.terminationGracePeriodSeconds }}
       terminationGracePeriodSeconds: {{ .Values.notificationController.terminationGracePeriodSeconds }}
@@ -80,7 +81,7 @@ spec:
           image: {{ template "flux.notification-controller.image" . }}
           imagePullPolicy: {{ .Values.notificationController.image.pullPolicy }}
           {{- if .Values.notificationController.containerSecurityContext.enabled }}
-          securityContext: {{- omit .Values.notificationController.containerSecurityContext "enabled" | toYaml | nindent 12 }}
+          securityContext: {{- include "common.compatibility.renderSecurityContext" (dict "secContext" .Values.notificationController.containerSecurityContext "context" $) | nindent 12 }}
           {{- end }}
           {{- if .Values.diagnosticMode.enabled }}
           command: {{- include "common.tplvalues.render" (dict "value" .Values.diagnosticMode.command "context" $) | nindent 12 }}
@@ -93,7 +94,7 @@ spec:
           args: {{- include "common.tplvalues.render" (dict "value" .Values.notificationController.args "context" $) | nindent 12 }}
           {{- else }}
           args:
-            - --watch-all-namespaces
+            - --watch-all-namespaces={{ .Values.notificationController.watchAllNamespaces }}
             {{- if .Values.notificationController.image.debug }}
             - --log-level=debug
             {{- else }}
@@ -123,6 +124,8 @@ spec:
             {{- end }}
           {{- if .Values.notificationController.resources }}
           resources: {{- toYaml .Values.notificationController.resources | nindent 12 }}
+          {{- else if ne .Values.notificationController.resourcesPreset "none" }}
+          resources: {{- include "common.resources.preset" (dict "type" .Values.notificationController.resourcesPreset) | nindent 12 }}
           {{- end }}
           ports:
             - name: http-metrics
@@ -159,8 +162,9 @@ spec:
           lifecycle: {{- include "common.tplvalues.render" (dict "value" .Values.notificationController.lifecycleHooks "context" $) | nindent 12 }}
           {{- end }}
           volumeMounts:
-            - name: tmp
+            - name: empty-dir
               mountPath: /tmp
+              subPath: tmp-dir
           {{- if .Values.notificationController.extraVolumeMounts }}
           {{- include "common.tplvalues.render" (dict "value" .Values.notificationController.extraVolumeMounts "context" $) | nindent 12 }}
           {{- end }}
@@ -168,7 +172,7 @@ spec:
         {{- include "common.tplvalues.render" ( dict "value" .Values.notificationController.sidecars "context" $) | nindent 8 }}
         {{- end }}
       volumes:
-        - name: tmp
+        - name: empty-dir
           emptyDir: {}
         {{- if .Values.notificationController.extraVolumes }}
         {{- include "common.tplvalues.render" (dict "value" .Values.notificationController.extraVolumes "context" $) | nindent 8 }}

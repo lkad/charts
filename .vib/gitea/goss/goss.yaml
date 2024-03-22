@@ -1,3 +1,6 @@
+# Copyright VMware, Inc.
+# SPDX-License-Identifier: APACHE-2.0
+
 addr:
   tcp://127.0.0.1:{{ .Vars.containerPorts.ssh }}:
     reachable: true
@@ -13,7 +16,7 @@ command:
     # or the one randomly defined by openshift (larger values). Otherwise, the chart is still using the default value.
     exec: if [ $(id -u) -lt {{ $uid }} ] || [ $(id -G | awk '{print $2}') -lt {{ $gid }} ]; then exit 1; fi
     exit-status: 0
-  {{ if .Vars.serviceAccount.automountServiceAccountToken }}
+  {{ if .Vars.automountServiceAccountToken }}
   check-sa:
     exec: cat /var/run/secrets/kubernetes.io/serviceaccount/token | cut -d '.' -f 2 | xargs -I '{}' echo '{}====' | fold -w 4 | sed '$ d' | tr -d '\n' | base64 -d
     exit-status: 0
@@ -24,7 +27,7 @@ file:
   /bitnami/gitea/custom/conf/app.ini:
     exists: true
     filetype: file
-    contains:
+    contents:
       - /NAME.*{{ .Vars.postgresql.auth.database }}/
       - /USER.*{{ .Vars.postgresql.auth.username }}/
       - /HOST.*{{ .Vars.postgresql.primary.service.ports.postgresql }}/

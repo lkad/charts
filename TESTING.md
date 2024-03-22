@@ -1,11 +1,8 @@
 # Testing information
 
-At Bitnami, we are committed to ensure the quality of the assets we deliver, and as such, tests play a fundamental role in the `bitnami/charts` repository. Bear in mind that every contribution to our charts is ultimately published to our Helm index, where it is made available for the rest of the community to benefit from. Before this happens, different checks are required to succeed. More precisely, tests are run when:
+At Bitnami, we are committed to ensure the quality of the assets we deliver, and as such, tests play a fundamental role in the `bitnami/charts` repository. Bear in mind that every contribution to our charts is ultimately published to our Helm index, where it is made available for the rest of the community to benefit from. Before this happens, different checks are required to succeed. More precisely, tests are run when a new contribution (regardless of its author) is made through a GitHub Pull Request.
 
-1. A new contribution (regardless of its author) is made through a GitHub Pull Request.
-2. Accepted changes are merged to the `main` branch, prior to their release.
-
-This strategy ensures that a set of changes must have succeeded twice before a new version is sent out to the public.
+This strategy ensures that a set of changes must have succeeded before a new version is sent out to the public.
 
 In this section, we will discuss:
 
@@ -115,9 +112,9 @@ This guide will focus in the `verify` phase section, in which there are some thi
 
 ### vib-verify.json vs vib-publish.json
 
-As seen in the introduction, there are two different events that will trigger the execution of the tests. These two files are associated to those two events respectively (`vib-verify.json` to the creation of a PR, meanwhile `vib-publish.json` to the merging of changes to `main`), and define what VIB should do when they are triggered.
+There are different events that will trigger the execution of the workflows and automations in this repository. These two files are associated to two events respectively (`vib-verify.json` to the creation of a PR, meanwhile `vib-publish.json` to the merging of changes to `main`), and define what VIB should do when they are triggered.
 
-Hence, tweaking the files allows to define different action policies depending on the event that was fired. Nevertheless, it was decided that the verification process should be identical in both cases. Therefore, the `verify` section in `vib-verify.json` and `vib-verify.json` files must coincide.
+Hence, tweaking the files allows to define different action policies depending on the event that was fired. It was decided that the verification process (i.e. the tests) should only take place when a new PR is created, and hence that is the reason for `verify` section to appear in `vib-verify.json`.
 
 ## Testing strategy
 
@@ -265,11 +262,11 @@ Sometimes it is of interest to run the tests locally, for example during develop
 1. Deploy the target Chart in your cluster, using the same installation parameters specified in the `vib-verify.json` pipeline file
 
     ```bash
-    $ helm install nginx bitnami/nginx -f .vib/nginx/runtime-parameters.yaml
+    helm install nginx bitnami/nginx -f .vib/nginx/runtime-parameters.yaml
     ```
 
-2. Download and install [Cypress](https://www.cypress.io/). The version currently used is `9.5.4`
-3. Obtain the IP and port of the Service exposing the UI of the application and adapt `cypress.json` to these values
+2. Download and install [Cypress](https://www.cypress.io/). The version currently used is `13.6.3`
+3. Obtain the IP and port of the Service exposing the UI of the application and adapt `cypress.config.js` to these values
 
     ```bash
     $ kubectl get svc
@@ -278,37 +275,43 @@ Sometimes it is of interest to run the tests locally, for example during develop
     nginx        LoadBalancer   10.99.41.53   1.1.1.1   80:31102/TCP,444:30230/TCP   65s
 
     $ cd .vib/nginx/cypress
-    $ cat cypress.json
-    {
-      "baseUrl": "http://localhost"
+    $ cat cypress.config.js
+    module.exports = {
+      e2e: {
+        setupNodeEvents(on, config) {},
+        baseUrl: 'http://localhost',
+      },
     }
     # Edit the file to point to 1.1.1.1:80
-    $ nano cypress.json
-    $ cat cypress.json
-    {
-      "baseUrl": "http://1.1.1.1:80"
+    $ nano cypress.config.js
+    $ cat cypress.config.js
+    module.exports = {
+      e2e: {
+        setupNodeEvents(on, config) {},
+        baseUrl: 'http://1.1.1.1:80',
+      },
     }
     ```
 
-    > NOTE: There are assets that require to have a host configured instead of a plain IP address to properly work. In this cases, you may find a `hosts` entry in the `cypress.json` file instead of the `baseUrl`. Proceed as follows:
+    > NOTE: There are assets that require to have a host configured instead of a plain IP address to properly work. In this cases, you may find a `hosts` entry in the `cypress.config.js` file instead of the `baseUrl`. Proceed as follows:
 
     ```bash
     $ cd .vib/prestashop/cypress
-    $ cat cypress.json
+    $ cat cypress.config.js
     {
       ...
-      "hosts": {
-        "vmware-prestashop.my": "{{ TARGET_IP }}"
+      hosts: {
+        'vmware-prestashop.my': '{{ TARGET_IP }}',
       },
       ...
     }
     # Replace the {{ TARGET_IP }} placeholder by the IP and port of the Service
-    $ nano cypress.json
-    $ cat cypress.json
+    $ nano cypress.config.js
+    $ cat cypress.config.js
     {
       ...
       "hosts": {
-        "vmware-prestashop.my": "1.1.1.1:80"
+        'vmware-prestashop.my': '1.1.1.1:80',
       },
       ...
     }
@@ -324,10 +327,11 @@ Sometimes it is of interest to run the tests locally, for example during develop
       (Run Starting)
 
       ┌─────────────────────────────────────────────────────────────────────────────────┐
-      │ Cypress:        9.5.4                                                           │
-      │ Browser:        Electron 94 (headless)                                          │
-      │ Node Version:   v16.13.2 (/usr/local/bin/node)                                  │
+      │ Cypress:        13.6.3                                                          │
+      │ Browser:        Electron 114 (headless)                                         │
+      │ Node Version:   v16.20.2 (/usr/local/bin/node)                                  │
       │ Specs:          1 found (nginx_spec.js)                                         │
+      │ Searched:       cypress/e2e/**/*.cy.{js,jsx,ts,tsx}                             │
       └─────────────────────────────────────────────────────────────────────────────────┘
     ...
     ✔  All specs passed!                        371ms        1        1
@@ -349,12 +353,12 @@ Sometimes it is of interest to run the tests locally, for example during develop
 * [ ] No `describe()` blocks should be present
 * [ ] Aim to have an assertion after every command to avoid flakiness, taking advantage of Cypress retry-ability
 * [ ] Test description is a sentence with the following format: Expected result summary, starting with a verb, in third person, no dots at the end of the sentence (ex: `it('checks if admin can edit a site', ()`)
-* [ ] Respect the folder structure recommended by Cypress:
+* [ ] Respect the [folder structure recommended by Cypress](https://docs.cypress.io/guides/core-concepts/writing-and-organizing-tests#Folder-structure):
   * [fixtures](https://docs.cypress.io/guides/core-concepts/writing-and-organizing-tests#Fixture-Files) - for test data
-  * integration - test scenario
+  * [e2e](https://docs.cypress.io/guides/core-concepts/writing-and-organizing-tests#Spec-files) - test scenario
   * [plugins](https://docs.cypress.io/guides/tooling/plugins-guide) - plugin configuration, if applicable
-  * support - reusable behaviours and overrides
-  * [cypress.json](https://docs.cypress.io/guides/references/legacy-configuration#cypressjson) - configuration values you wish to store
+  * [support](https://docs.cypress.io/guides/core-concepts/writing-and-organizing-tests#Spec-files) - reusable behaviours and overrides to include before test files
+  * [cypress.config.js](https://docs.cypress.io/guides/references/configuration#Configuration-File) - configuration values you wish to store
 * [ ] DOM selectors should be resilient. See best practices [here](https://docs.cypress.io/guides/references/best-practices#Selecting-Elements)
 * [ ] Unnecessary waiting should be avoided
 * [ ] Apply the following code style:
@@ -396,7 +400,7 @@ Sometimes it is of interest to run the tests locally, for example during develop
 1. Deploy the target Chart in your cluster, using the same installation parameters specified in the `vib-verify.json` pipeline file
 
     ```bash
-    $ helm install metallb bitnami/metallb -f .vib/metallb/runtime-parameters.yaml
+    helm install metallb bitnami/metallb -f .vib/metallb/runtime-parameters.yaml
     ```
 
 2. Download and [install Ginkgo](https://onsi.github.io/ginkgo/#installing-ginkgo) in your system
@@ -467,7 +471,7 @@ Sometimes it is of interest to run the tests locally, for example during develop
 1. Deploy the target Chart in your cluster, using the same installation parameters specified in the `vib-verify.json` pipeline file
 
     ```bash
-    $ helm install nginx bitnami/nginx -f .vib/nginx/runtime-parameters.yaml
+    helm install nginx bitnami/nginx -f .vib/nginx/runtime-parameters.yaml
     ```
 
 2. Download the [GOSS binary for Linux AMD64](https://github.com/goss-org/goss/releases/)

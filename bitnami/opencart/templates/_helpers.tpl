@@ -1,4 +1,9 @@
 {{/*
+Copyright VMware, Inc.
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
+{{/*
 Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 */}}
@@ -28,7 +33,7 @@ When using Ingress, it will be set to the Ingress hostname.
 {{- $host := .Values.ingress.hostname | default "" -}}
 {{- default (include "opencart.serviceIP" .) $host -}}
 {{- else -}}
-{{- $host := index .Values (printf "%sHost" .Chart.Name) | default "" -}}
+{{- $host := .Values.opencartHost | default "" -}}
 {{- default (include "opencart.serviceIP" .) $host -}}
 {{- end -}}
 {{- end -}}
@@ -66,6 +71,17 @@ Return the proper Docker Image Registry Secret Names
 */}}
 {{- define "opencart.imagePullSecrets" -}}
 {{- include "common.images.pullSecrets" (dict "images" (list .Values.image .Values.metrics.image .Values.volumePermissions.image .Values.certificates.image) "global" .Values.global) -}}
+{{- end -}}
+
+{{/*
+ Create the name of the service account to use
+ */}}
+{{- define "opencart.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create -}}
+    {{ default (include "common.names.fullname" .) .Values.serviceAccount.name }}
+{{- else -}}
+    {{ default "default" .Values.serviceAccount.name }}
+{{- end -}}
 {{- end -}}
 
 {{/*

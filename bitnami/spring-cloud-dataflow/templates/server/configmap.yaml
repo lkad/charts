@@ -1,21 +1,23 @@
+{{- /*
+Copyright VMware, Inc.
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
 {{- if (include "scdf.server.createConfigmap" .) }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "scdf.fullname" . }}-server
-  labels: {{- include "common.labels.standard" . | nindent 4 }}
+  name: {{ include "scdf.server.fullname" . }}
+  labels: {{- include "common.labels.standard" ( dict "customLabels" .Values.commonLabels "context" $ ) | nindent 4 }}
     app.kubernetes.io/component: server
-    {{- if .Values.commonLabels }}
-    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
-    {{- end }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "common.names.namespace" . | quote }}
   {{- if .Values.commonAnnotations }}
   annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
   {{- end }}
 data:
   application.yaml: |-
     {{- if .Values.metrics.enabled }}
-    {{- $fullname := include "scdf.fullname" . }}
+    {{- $fullname := include "common.names.fullname" . }}
     {{- $rsocketPort := int (coalesce .Values.metrics.service.ports.rsocket .Values.metrics.service.rsocketPort) }}
     management:
       metrics:
@@ -43,11 +45,15 @@ data:
                     {{- if $environmentVariables }}
                     environmentVariables: {{- $environmentVariables | trim | nindent 22 }}
                     {{- end }}
+                    {{- if .Values.deployer.resources }}
                     {{- if .Values.deployer.resources.limits }}
                     limits: {{- include "common.tplvalues.render" (dict "value" .Values.deployer.resources.limits "context" $) | trim | nindent 22 }}
                     {{- end }}
                     {{- if .Values.deployer.resources.requests }}
                     requests: {{- include "common.tplvalues.render" (dict "value" .Values.deployer.resources.requests "context" $) | trim | nindent 22 }}
+                    {{- end }}
+                    {{- else if ne .Values.deployer.resourcesPreset "none" }}
+                    {{- include "common.resources.preset" (dict "type" .Values.deployer.resourcesPreset) | nindent 20 }}
                     {{- end }}
                     {{- if .Values.deployer.readinessProbe.initialDelaySeconds }}
                     readinessProbeDelay: {{ .Values.deployer.readinessProbe.initialDelaySeconds }}
@@ -91,6 +97,10 @@ data:
           metrics.dashboard:
             url: {{ .Values.server.configuration.grafanaInfo }}
           {{- end }}
+          {{- if .Values.server.security.authorization }}
+          security:
+            authorization: {{- include "common.tplvalues.render" (dict "value" .Values.server.security.authorization) | nindent 14 }}
+          {{- end }}
         task:
           closecontextEnabled: true
       {{- if .Values.externalDatabase.hibernateDialect }}
@@ -103,13 +113,21 @@ data:
         url: '{{ include "scdf.database.dataflow.url" . }}'
         driverClassName: {{ include "scdf.database.driver" . }}
         username: {{ include "scdf.database.server.user" . }}
-        {{ if .Values.externalDatabase.existingPasswordSecret }}
-        password: {{ .Values.externalDatabase.existingPasswordKey | default "datasource-password" | printf "${%s}" }}
-        {{- else -}}
+        {{- $secretName := coalesce .Values.externalDatabase.dataflow.existingSecret .Values.externalDatabase.existingPasswordSecret -}}
+        {{- $secretPasswordKey := coalesce .Values.externalDatabase.dataflow.existingSecretPasswordKey .Values.externalDatabase.existingPasswordKey -}}
+        {{- if .Values.mariadb.enabled }}
         password: ${mariadb-password}
+        {{- else if and $secretName $secretPasswordKey }}
+        password: {{ printf "${%s}" $secretPasswordKey }}
+        {{- else }}
+        password: ${datasource-password}
         {{- end }}
         testOnBorrow: true
         validationQuery: "SELECT 1"
       flyway:
         enabled: {{ .Values.flyway.enabled }}
+      {{- if .Values.server.security.oauth2 }}
+      security:
+        oauth2: {{- include "common.tplvalues.render" (dict "value" .Values.server.security.oauth2) | nindent 10 }}
+      {{- end }}
 {{ end }}

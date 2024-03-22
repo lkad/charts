@@ -1,6 +1,6 @@
 <!--- app-name: NGINX Open Source -->
 
-# NGINX Open Source packaged by Bitnami
+# Bitnami package for NGINX Open Source
 
 NGINX Open Source is a web server that can be also used as a reverse proxy, load balancer, and HTTP cache. Recommended for high-demanding sites due to its ability to provide faster content.
 
@@ -14,6 +14,8 @@ Trademarks: This software listing is packaged by Bitnami. The respective tradema
 helm install my-release oci://registry-1.docker.io/bitnamicharts/nginx
 ```
 
+Looking to use NGINX Open Source in production? Try [VMware Tanzu Application Catalog](https://bitnami.com/enterprise), the enterprise edition of Bitnami Application Catalog.
+
 ## Introduction
 
 Bitnami charts for Helm are carefully engineered, actively maintained and are the quickest and easiest way to deploy containers on a Kubernetes cluster that are ready to handle production workloads.
@@ -24,275 +26,32 @@ Bitnami charts can be used with [Kubeapps](https://kubeapps.dev/) for deployment
 
 ## Prerequisites
 
-- Kubernetes 1.19+
-- Helm 3.2.0+
+- Kubernetes 1.23+
+- Helm 3.8.0+
 
 ## Installing the Chart
 
 To install the chart with the release name `my-release`:
 
 ```console
-helm install my-release oci://registry-1.docker.io/bitnamicharts/nginx
+helm install my-release oci://REGISTRY_NAME/REPOSITORY_NAME/nginx
 ```
+
+> Note: You need to substitute the placeholders `REGISTRY_NAME` and `REPOSITORY_NAME` with a reference to your Helm chart registry and repository. For example, in the case of Bitnami, you need to use `REGISTRY_NAME=registry-1.docker.io` and `REPOSITORY_NAME=bitnamicharts`.
 
 These commands deploy NGINX Open Source on the Kubernetes cluster in the default configuration.
 
 > **Tip**: List all releases using `helm list`
 
-## Uninstalling the Chart
-
-To uninstall/delete the `my-release` deployment:
-
-```console
-helm delete my-release
-```
-
-The command removes all the Kubernetes components associated with the chart and deletes the release.
-
-## Parameters
-
-### Global parameters
-
-| Name                      | Description                                     | Value |
-| ------------------------- | ----------------------------------------------- | ----- |
-| `global.imageRegistry`    | Global Docker image registry                    | `""`  |
-| `global.imagePullSecrets` | Global Docker registry secret names as an array | `[]`  |
-
-### Common parameters
-
-| Name                     | Description                                                                             | Value           |
-| ------------------------ | --------------------------------------------------------------------------------------- | --------------- |
-| `nameOverride`           | String to partially override nginx.fullname template (will maintain the release name)   | `""`            |
-| `fullnameOverride`       | String to fully override nginx.fullname template                                        | `""`            |
-| `namespaceOverride`      | String to fully override common.names.namespace                                         | `""`            |
-| `kubeVersion`            | Force target Kubernetes version (using Helm capabilities if not set)                    | `""`            |
-| `clusterDomain`          | Kubernetes Cluster Domain                                                               | `cluster.local` |
-| `extraDeploy`            | Extra objects to deploy (value evaluated as a template)                                 | `[]`            |
-| `commonLabels`           | Add labels to all the deployed resources                                                | `{}`            |
-| `commonAnnotations`      | Add annotations to all the deployed resources                                           | `{}`            |
-| `diagnosticMode.enabled` | Enable diagnostic mode (all probes will be disabled and the command will be overridden) | `false`         |
-| `diagnosticMode.command` | Command to override all containers in the the deployment(s)/statefulset(s)              | `["sleep"]`     |
-| `diagnosticMode.args`    | Args to override all containers in the the deployment(s)/statefulset(s)                 | `["infinity"]`  |
-
-### NGINX parameters
-
-| Name                 | Description                                                                                           | Value                 |
-| -------------------- | ----------------------------------------------------------------------------------------------------- | --------------------- |
-| `image.registry`     | NGINX image registry                                                                                  | `docker.io`           |
-| `image.repository`   | NGINX image repository                                                                                | `bitnami/nginx`       |
-| `image.tag`          | NGINX image tag (immutable tags are recommended)                                                      | `1.24.0-debian-11-r5` |
-| `image.digest`       | NGINX image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag | `""`                  |
-| `image.pullPolicy`   | NGINX image pull policy                                                                               | `IfNotPresent`        |
-| `image.pullSecrets`  | Specify docker-registry secret names as an array                                                      | `[]`                  |
-| `image.debug`        | Set to true if you would like to see extra information on logs                                        | `false`               |
-| `hostAliases`        | Deployment pod host aliases                                                                           | `[]`                  |
-| `command`            | Override default container command (useful when using custom images)                                  | `[]`                  |
-| `args`               | Override default container args (useful when using custom images)                                     | `[]`                  |
-| `extraEnvVars`       | Extra environment variables to be set on NGINX containers                                             | `[]`                  |
-| `extraEnvVarsCM`     | ConfigMap with extra environment variables                                                            | `""`                  |
-| `extraEnvVarsSecret` | Secret with extra environment variables                                                               | `""`                  |
-
-### NGINX deployment parameters
-
-| Name                                          | Description                                                                               | Value           |
-| --------------------------------------------- | ----------------------------------------------------------------------------------------- | --------------- |
-| `replicaCount`                                | Number of NGINX replicas to deploy                                                        | `1`             |
-| `updateStrategy.type`                         | NGINX deployment strategy type                                                            | `RollingUpdate` |
-| `updateStrategy.rollingUpdate`                | NGINX deployment rolling update configuration parameters                                  | `{}`            |
-| `podLabels`                                   | Additional labels for NGINX pods                                                          | `{}`            |
-| `podAnnotations`                              | Annotations for NGINX pods                                                                | `{}`            |
-| `podAffinityPreset`                           | Pod affinity preset. Ignored if `affinity` is set. Allowed values: `soft` or `hard`       | `""`            |
-| `podAntiAffinityPreset`                       | Pod anti-affinity preset. Ignored if `affinity` is set. Allowed values: `soft` or `hard`  | `soft`          |
-| `nodeAffinityPreset.type`                     | Node affinity preset type. Ignored if `affinity` is set. Allowed values: `soft` or `hard` | `""`            |
-| `nodeAffinityPreset.key`                      | Node label key to match Ignored if `affinity` is set.                                     | `""`            |
-| `nodeAffinityPreset.values`                   | Node label values to match. Ignored if `affinity` is set.                                 | `[]`            |
-| `affinity`                                    | Affinity for pod assignment                                                               | `{}`            |
-| `hostNetwork`                                 | Specify if host network should be enabled for NGINX pod                                   | `false`         |
-| `hostIPC`                                     | Specify if host IPC should be enabled for NGINX pod                                       | `false`         |
-| `nodeSelector`                                | Node labels for pod assignment. Evaluated as a template.                                  | `{}`            |
-| `tolerations`                                 | Tolerations for pod assignment. Evaluated as a template.                                  | `[]`            |
-| `priorityClassName`                           | NGINX pods' priorityClassName                                                             | `""`            |
-| `schedulerName`                               | Name of the k8s scheduler (other than default)                                            | `""`            |
-| `terminationGracePeriodSeconds`               | In seconds, time the given to the NGINX pod needs to terminate gracefully                 | `""`            |
-| `topologySpreadConstraints`                   | Topology Spread Constraints for pod assignment                                            | `[]`            |
-| `podSecurityContext.enabled`                  | Enabled NGINX pods' Security Context                                                      | `false`         |
-| `podSecurityContext.fsGroup`                  | Set NGINX pod's Security Context fsGroup                                                  | `1001`          |
-| `podSecurityContext.sysctls`                  | sysctl settings of the NGINX pods                                                         | `[]`            |
-| `containerSecurityContext.enabled`            | Enabled NGINX containers' Security Context                                                | `false`         |
-| `containerSecurityContext.runAsUser`          | Set NGINX container's Security Context runAsUser                                          | `1001`          |
-| `containerSecurityContext.runAsNonRoot`       | Set NGINX container's Security Context runAsNonRoot                                       | `true`          |
-| `containerPorts.http`                         | Sets http port inside NGINX container                                                     | `8080`          |
-| `containerPorts.https`                        | Sets https port inside NGINX container                                                    | `""`            |
-| `extraContainerPorts`                         | Array of additional container ports for the Nginx container                               | `[]`            |
-| `resources.limits`                            | The resources limits for the NGINX container                                              | `{}`            |
-| `resources.requests`                          | The requested resources for the NGINX container                                           | `{}`            |
-| `lifecycleHooks`                              | Optional lifecycleHooks for the NGINX container                                           | `{}`            |
-| `startupProbe.enabled`                        | Enable startupProbe                                                                       | `false`         |
-| `startupProbe.initialDelaySeconds`            | Initial delay seconds for startupProbe                                                    | `30`            |
-| `startupProbe.periodSeconds`                  | Period seconds for startupProbe                                                           | `10`            |
-| `startupProbe.timeoutSeconds`                 | Timeout seconds for startupProbe                                                          | `5`             |
-| `startupProbe.failureThreshold`               | Failure threshold for startupProbe                                                        | `6`             |
-| `startupProbe.successThreshold`               | Success threshold for startupProbe                                                        | `1`             |
-| `livenessProbe.enabled`                       | Enable livenessProbe                                                                      | `true`          |
-| `livenessProbe.initialDelaySeconds`           | Initial delay seconds for livenessProbe                                                   | `30`            |
-| `livenessProbe.periodSeconds`                 | Period seconds for livenessProbe                                                          | `10`            |
-| `livenessProbe.timeoutSeconds`                | Timeout seconds for livenessProbe                                                         | `5`             |
-| `livenessProbe.failureThreshold`              | Failure threshold for livenessProbe                                                       | `6`             |
-| `livenessProbe.successThreshold`              | Success threshold for livenessProbe                                                       | `1`             |
-| `readinessProbe.enabled`                      | Enable readinessProbe                                                                     | `true`          |
-| `readinessProbe.initialDelaySeconds`          | Initial delay seconds for readinessProbe                                                  | `5`             |
-| `readinessProbe.periodSeconds`                | Period seconds for readinessProbe                                                         | `5`             |
-| `readinessProbe.timeoutSeconds`               | Timeout seconds for readinessProbe                                                        | `3`             |
-| `readinessProbe.failureThreshold`             | Failure threshold for readinessProbe                                                      | `3`             |
-| `readinessProbe.successThreshold`             | Success threshold for readinessProbe                                                      | `1`             |
-| `customStartupProbe`                          | Custom liveness probe for the Web component                                               | `{}`            |
-| `customLivenessProbe`                         | Override default liveness probe                                                           | `{}`            |
-| `customReadinessProbe`                        | Override default readiness probe                                                          | `{}`            |
-| `autoscaling.enabled`                         | Enable autoscaling for NGINX deployment                                                   | `false`         |
-| `autoscaling.minReplicas`                     | Minimum number of replicas to scale back                                                  | `""`            |
-| `autoscaling.maxReplicas`                     | Maximum number of replicas to scale out                                                   | `""`            |
-| `autoscaling.targetCPU`                       | Target CPU utilization percentage                                                         | `""`            |
-| `autoscaling.targetMemory`                    | Target Memory utilization percentage                                                      | `""`            |
-| `extraVolumes`                                | Array to add extra volumes                                                                | `[]`            |
-| `extraVolumeMounts`                           | Array to add extra mount                                                                  | `[]`            |
-| `serviceAccount.create`                       | Enable creation of ServiceAccount for nginx pod                                           | `false`         |
-| `serviceAccount.name`                         | The name of the ServiceAccount to use.                                                    | `""`            |
-| `serviceAccount.annotations`                  | Annotations for service account. Evaluated as a template.                                 | `{}`            |
-| `serviceAccount.automountServiceAccountToken` | Auto-mount the service account token in the pod                                           | `false`         |
-| `sidecars`                                    | Sidecar parameters                                                                        | `[]`            |
-| `sidecarSingleProcessNamespace`               | Enable sharing the process namespace with sidecars                                        | `false`         |
-| `initContainers`                              | Extra init containers                                                                     | `[]`            |
-| `pdb.create`                                  | Created a PodDisruptionBudget                                                             | `false`         |
-| `pdb.minAvailable`                            | Min number of pods that must still be available after the eviction.                       | `1`             |
-| `pdb.maxUnavailable`                          | Max number of pods that can be unavailable after the eviction.                            | `0`             |
-
-### Custom NGINX application parameters
-
-| Name                                                | Description                                                                                         | Value                 |
-| --------------------------------------------------- | --------------------------------------------------------------------------------------------------- | --------------------- |
-| `cloneStaticSiteFromGit.enabled`                    | Get the server static content from a Git repository                                                 | `false`               |
-| `cloneStaticSiteFromGit.image.registry`             | Git image registry                                                                                  | `docker.io`           |
-| `cloneStaticSiteFromGit.image.repository`           | Git image repository                                                                                | `bitnami/git`         |
-| `cloneStaticSiteFromGit.image.tag`                  | Git image tag (immutable tags are recommended)                                                      | `2.40.1-debian-11-r4` |
-| `cloneStaticSiteFromGit.image.digest`               | Git image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag | `""`                  |
-| `cloneStaticSiteFromGit.image.pullPolicy`           | Git image pull policy                                                                               | `IfNotPresent`        |
-| `cloneStaticSiteFromGit.image.pullSecrets`          | Specify docker-registry secret names as an array                                                    | `[]`                  |
-| `cloneStaticSiteFromGit.repository`                 | Git Repository to clone static content from                                                         | `""`                  |
-| `cloneStaticSiteFromGit.branch`                     | Git branch to checkout                                                                              | `""`                  |
-| `cloneStaticSiteFromGit.interval`                   | Interval for sidecar container pull from the Git repository                                         | `60`                  |
-| `cloneStaticSiteFromGit.gitClone.command`           | Override default container command for git-clone-repository                                         | `[]`                  |
-| `cloneStaticSiteFromGit.gitClone.args`              | Override default container args for git-clone-repository                                            | `[]`                  |
-| `cloneStaticSiteFromGit.gitSync.command`            | Override default container command for git-repo-syncer                                              | `[]`                  |
-| `cloneStaticSiteFromGit.gitSync.args`               | Override default container args for git-repo-syncer                                                 | `[]`                  |
-| `cloneStaticSiteFromGit.gitSync.resources.limits`   | The resources limits for the git-repo-syncer container                                              | `{}`                  |
-| `cloneStaticSiteFromGit.gitSync.resources.requests` | The requested resources for the git-repo-syncer container                                           | `{}`                  |
-| `cloneStaticSiteFromGit.extraEnvVars`               | Additional environment variables to set for the in the containers that clone static site from git   | `[]`                  |
-| `cloneStaticSiteFromGit.extraVolumeMounts`          | Add extra volume mounts for the Git containers                                                      | `[]`                  |
-| `serverBlock`                                       | Custom server block to be added to NGINX configuration                                              | `""`                  |
-| `existingServerBlockConfigmap`                      | ConfigMap with custom server block to be added to NGINX configuration                               | `""`                  |
-| `staticSiteConfigmap`                               | Name of existing ConfigMap with the server static site content                                      | `""`                  |
-| `staticSitePVC`                                     | Name of existing PVC with the server static site content                                            | `""`                  |
-
-### Traffic Exposure parameters
-
-| Name                               | Description                                                                                                                      | Value                    |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| `service.type`                     | Service type                                                                                                                     | `LoadBalancer`           |
-| `service.ports.http`               | Service HTTP port                                                                                                                | `80`                     |
-| `service.ports.https`              | Service HTTPS port                                                                                                               | `443`                    |
-| `service.nodePorts`                | Specify the nodePort(s) value(s) for the LoadBalancer and NodePort service types.                                                | `{}`                     |
-| `service.targetPort`               | Target port reference value for the Loadbalancer service types can be specified explicitly.                                      | `{}`                     |
-| `service.clusterIP`                | NGINX service Cluster IP                                                                                                         | `""`                     |
-| `service.loadBalancerIP`           | LoadBalancer service IP address                                                                                                  | `""`                     |
-| `service.loadBalancerSourceRanges` | NGINX service Load Balancer sources                                                                                              | `[]`                     |
-| `service.extraPorts`               | Extra ports to expose (normally used with the `sidecar` value)                                                                   | `[]`                     |
-| `service.sessionAffinity`          | Session Affinity for Kubernetes service, can be "None" or "ClientIP"                                                             | `None`                   |
-| `service.sessionAffinityConfig`    | Additional settings for the sessionAffinity                                                                                      | `{}`                     |
-| `service.annotations`              | Service annotations                                                                                                              | `{}`                     |
-| `service.externalTrafficPolicy`    | Enable client source IP preservation                                                                                             | `Cluster`                |
-| `ingress.enabled`                  | Set to true to enable ingress record generation                                                                                  | `false`                  |
-| `ingress.selfSigned`               | Create a TLS secret for this ingress record using self-signed certificates generated by Helm                                     | `false`                  |
-| `ingress.pathType`                 | Ingress path type                                                                                                                | `ImplementationSpecific` |
-| `ingress.apiVersion`               | Force Ingress API version (automatically detected if not set)                                                                    | `""`                     |
-| `ingress.hostname`                 | Default host for the ingress resource                                                                                            | `nginx.local`            |
-| `ingress.path`                     | The Path to Nginx. You may need to set this to '/*' in order to use this with ALB ingress controllers.                           | `/`                      |
-| `ingress.annotations`              | Additional annotations for the Ingress resource. To enable certificate autogeneration, place here your cert-manager annotations. | `{}`                     |
-| `ingress.ingressClassName`         | Set the ingerssClassName on the ingress record for k8s 1.18+                                                                     | `""`                     |
-| `ingress.tls`                      | Create TLS Secret                                                                                                                | `false`                  |
-| `ingress.extraHosts`               | The list of additional hostnames to be covered with this ingress record.                                                         | `[]`                     |
-| `ingress.extraPaths`               | Any additional arbitrary paths that may need to be added to the ingress under the main host.                                     | `[]`                     |
-| `ingress.extraTls`                 | The tls configuration for additional hostnames to be covered with this ingress record.                                           | `[]`                     |
-| `ingress.secrets`                  | If you're providing your own certificates, please use this to add the certificates as secrets                                    | `[]`                     |
-| `ingress.extraRules`               | The list of additional rules to be added to this ingress record. Evaluated as a template                                         | `[]`                     |
-| `healthIngress.enabled`            | Set to true to enable health ingress record generation                                                                           | `false`                  |
-| `healthIngress.selfSigned`         | Create a TLS secret for this ingress record using self-signed certificates generated by Helm                                     | `false`                  |
-| `healthIngress.pathType`           | Ingress path type                                                                                                                | `ImplementationSpecific` |
-| `healthIngress.hostname`           | When the health ingress is enabled, a host pointing to this will be created                                                      | `example.local`          |
-| `healthIngress.path`               | Default path for the ingress record                                                                                              | `/`                      |
-| `healthIngress.annotations`        | Additional annotations for the Ingress resource. To enable certificate autogeneration, place here your cert-manager annotations. | `{}`                     |
-| `healthIngress.tls`                | Enable TLS configuration for the hostname defined at `healthIngress.hostname` parameter                                          | `false`                  |
-| `healthIngress.extraHosts`         | An array with additional hostname(s) to be covered with the ingress record                                                       | `[]`                     |
-| `healthIngress.extraPaths`         | An array with additional arbitrary paths that may need to be added to the ingress under the main host                            | `[]`                     |
-| `healthIngress.extraTls`           | TLS configuration for additional hostnames to be covered                                                                         | `[]`                     |
-| `healthIngress.secrets`            | TLS Secret configuration                                                                                                         | `[]`                     |
-| `healthIngress.ingressClassName`   | IngressClass that will be be used to implement the Ingress (Kubernetes 1.18+)                                                    | `""`                     |
-| `healthIngress.extraRules`         | The list of additional rules to be added to this ingress record. Evaluated as a template                                         | `[]`                     |
-
-### Metrics parameters
-
-| Name                                       | Description                                                                                                                               | Value                    |
-| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| `metrics.enabled`                          | Start a Prometheus exporter sidecar container                                                                                             | `false`                  |
-| `metrics.port`                             | NGINX Container Status Port scraped by Prometheus Exporter                                                                                | `""`                     |
-| `metrics.image.registry`                   | NGINX Prometheus exporter image registry                                                                                                  | `docker.io`              |
-| `metrics.image.repository`                 | NGINX Prometheus exporter image repository                                                                                                | `bitnami/nginx-exporter` |
-| `metrics.image.tag`                        | NGINX Prometheus exporter image tag (immutable tags are recommended)                                                                      | `0.11.0-debian-11-r78`   |
-| `metrics.image.digest`                     | NGINX Prometheus exporter image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag                 | `""`                     |
-| `metrics.image.pullPolicy`                 | NGINX Prometheus exporter image pull policy                                                                                               | `IfNotPresent`           |
-| `metrics.image.pullSecrets`                | Specify docker-registry secret names as an array                                                                                          | `[]`                     |
-| `metrics.podAnnotations`                   | Additional annotations for NGINX Prometheus exporter pod(s)                                                                               | `{}`                     |
-| `metrics.securityContext.enabled`          | Enabled NGINX Exporter containers' Security Context                                                                                       | `false`                  |
-| `metrics.securityContext.runAsUser`        | Set NGINX Exporter container's Security Context runAsUser                                                                                 | `1001`                   |
-| `metrics.service.port`                     | NGINX Prometheus exporter service port                                                                                                    | `9113`                   |
-| `metrics.service.annotations`              | Annotations for the Prometheus exporter service                                                                                           | `{}`                     |
-| `metrics.resources.limits`                 | The resources limits for the NGINX Prometheus exporter container                                                                          | `{}`                     |
-| `metrics.resources.requests`               | The requested resources for the NGINX Prometheus exporter container                                                                       | `{}`                     |
-| `metrics.serviceMonitor.enabled`           | Creates a Prometheus Operator ServiceMonitor (also requires `metrics.enabled` to be `true`)                                               | `false`                  |
-| `metrics.serviceMonitor.namespace`         | Namespace in which Prometheus is running                                                                                                  | `""`                     |
-| `metrics.serviceMonitor.jobLabel`          | The name of the label on the target service to use as the job name in prometheus.                                                         | `""`                     |
-| `metrics.serviceMonitor.interval`          | Interval at which metrics should be scraped.                                                                                              | `""`                     |
-| `metrics.serviceMonitor.scrapeTimeout`     | Timeout after which the scrape is ended                                                                                                   | `""`                     |
-| `metrics.serviceMonitor.selector`          | Prometheus instance selector labels                                                                                                       | `{}`                     |
-| `metrics.serviceMonitor.labels`            | Additional labels that can be used so PodMonitor will be discovered by Prometheus                                                         | `{}`                     |
-| `metrics.serviceMonitor.relabelings`       | RelabelConfigs to apply to samples before scraping                                                                                        | `[]`                     |
-| `metrics.serviceMonitor.metricRelabelings` | MetricRelabelConfigs to apply to samples before ingestion                                                                                 | `[]`                     |
-| `metrics.serviceMonitor.honorLabels`       | honorLabels chooses the metric's labels on collisions with target labels                                                                  | `false`                  |
-| `metrics.prometheusRule.enabled`           | if `true`, creates a Prometheus Operator PrometheusRule (also requires `metrics.enabled` to be `true` and `metrics.prometheusRule.rules`) | `false`                  |
-| `metrics.prometheusRule.namespace`         | Namespace for the PrometheusRule Resource (defaults to the Release Namespace)                                                             | `""`                     |
-| `metrics.prometheusRule.additionalLabels`  | Additional labels that can be used so PrometheusRule will be discovered by Prometheus                                                     | `{}`                     |
-| `metrics.prometheusRule.rules`             | Prometheus Rule definitions                                                                                                               | `[]`                     |
-
-Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
-
-```console
-helm install my-release \
-  --set imagePullPolicy=Always \
-    oci://registry-1.docker.io/bitnamicharts/nginx
-```
-
-The above command sets the `imagePullPolicy` to `Always`.
-
-Alternatively, a YAML file that specifies the values for the parameters can be provided while installing the chart. For example,
-
-```console
-helm install my-release -f values.yaml oci://registry-1.docker.io/bitnamicharts/nginx
-```
-
-> **Tip**: You can use the default [values.yaml](values.yaml)
-
 ## Configuration and installation details
 
-### [Rolling VS Immutable tags](https://docs.bitnami.com/containers/how-to/understand-rolling-tags-containers/)
+### Resource requests and limits
+
+Bitnami charts allow setting resource requests and limits for all containers inside the chart deployment. These are inside the `resources` value (check parameter table). Setting requests is essential for production workloads and these should be adapted to your specific use case.
+
+To make this process easier, the chart contains the `resourcesPreset` values, which automatically sets the `resources` section according to different presets. Check these presets in [the bitnami/common chart](https://github.com/bitnami/charts/blob/main/bitnami/common/templates/_resources.tpl#L15). However, in production workloads using `resourcePreset` is discouraged as it may not fully adapt to your specific needs. Find more information on container resource management in the [official Kubernetes documentation](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/).
+
+### [Rolling VS Immutable tags](https://docs.bitnami.com/tutorials/understand-rolling-tags-containers)
 
 It is strongly recommended to use immutable tags in a production environment. This ensures your deployment does not change automatically if the same tag is updated with a different image.
 
@@ -300,13 +59,13 @@ Bitnami will release a new chart updating its containers if a new version of the
 
 ### Use a different NGINX version
 
-To modify the application version used in this chart, specify a different version of the image using the `image.tag` parameter and/or a different repository using the `image.repository` parameter. Refer to the [chart documentation for more information on these parameters and how to use them with images from a private registry](https://docs.bitnami.com/kubernetes/infrastructure/nginx/configuration/change-image-version/).
+To modify the application version used in this chart, specify a different version of the image using the `image.tag` parameter and/or a different repository using the `image.repository` parameter.
 
 ### Deploying your custom web application
 
 The NGINX chart allows you to deploy a custom web application using one of the following methods:
 
-- Cloning from a git repository: Set `cloneStaticSiteFromGit.enabled` to `true` and set the repository and branch using the `cloneStaticSiteFromGit.repository` and  `cloneStaticSiteFromGit.branch` parameters. A sidecar will also pull the latest changes in an interval set by `cloneStaticSitesFromGit.interval`.
+- Cloning from a git repository: Set `cloneStaticSiteFromGit.enabled` to `true` and set the repository and branch using the `cloneStaticSiteFromGit.repository` and `cloneStaticSiteFromGit.branch` parameters. A sidecar will also pull the latest changes in an interval set by `cloneStaticSitesFromGit.interval`.
 - Providing a ConfigMap: Set the `staticSiteConfigmap` value to mount a ConfigMap in the NGINX html folder.
 - Using an existing PVC: Set the `staticSitePVC` value to mount an PersistentVolumeClaim with the static site content.
 
@@ -372,7 +131,273 @@ Most likely you will only want to have one hostname that maps to this NGINX inst
 
 For each host indicated at `ingress.extraHosts`, please indicate a `name`, `path`, and any `annotations` that you may want the ingress controller to know about.
 
-For annotations, please see [this document](https://github.com/kubernetes/ingress-nginx/blob/master/docs/user-guide/nginx-configuration/annotations.md). Not all annotations are supported by all ingress controllers, but this document does a good job of indicating which annotation is supported by many popular ingress controllers.
+For annotations, please see [this document](https://github.com/kubernetes/ingress-nginx/blob/main/docs/user-guide/nginx-configuration/annotations.md). Not all annotations are supported by all ingress controllers, but this document does a good job of indicating which annotation is supported by many popular ingress controllers.
+
+## Parameters
+
+### Global parameters
+
+| Name                                                  | Description                                                                                                                                                                                                                                                                                                                                                         | Value      |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `global.imageRegistry`                                | Global Docker image registry                                                                                                                                                                                                                                                                                                                                        | `""`       |
+| `global.imagePullSecrets`                             | Global Docker registry secret names as an array                                                                                                                                                                                                                                                                                                                     | `[]`       |
+| `global.compatibility.openshift.adaptSecurityContext` | Adapt the securityContext sections of the deployment to make them compatible with Openshift restricted-v2 SCC: remove runAsUser, runAsGroup and fsGroup and let the platform use their allowed default IDs. Possible values: auto (apply if the detected running cluster is Openshift), force (perform the adaptation always), disabled (do not perform adaptation) | `disabled` |
+
+### Common parameters
+
+| Name                     | Description                                                                             | Value           |
+| ------------------------ | --------------------------------------------------------------------------------------- | --------------- |
+| `nameOverride`           | String to partially override nginx.fullname template (will maintain the release name)   | `""`            |
+| `fullnameOverride`       | String to fully override nginx.fullname template                                        | `""`            |
+| `namespaceOverride`      | String to fully override common.names.namespace                                         | `""`            |
+| `kubeVersion`            | Force target Kubernetes version (using Helm capabilities if not set)                    | `""`            |
+| `clusterDomain`          | Kubernetes Cluster Domain                                                               | `cluster.local` |
+| `extraDeploy`            | Extra objects to deploy (value evaluated as a template)                                 | `[]`            |
+| `commonLabels`           | Add labels to all the deployed resources                                                | `{}`            |
+| `commonAnnotations`      | Add annotations to all the deployed resources                                           | `{}`            |
+| `diagnosticMode.enabled` | Enable diagnostic mode (all probes will be disabled and the command will be overridden) | `false`         |
+| `diagnosticMode.command` | Command to override all containers in the the deployment(s)/statefulset(s)              | `["sleep"]`     |
+| `diagnosticMode.args`    | Args to override all containers in the the deployment(s)/statefulset(s)                 | `["infinity"]`  |
+
+### NGINX parameters
+
+| Name                           | Description                                                                                           | Value                   |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------- | ----------------------- |
+| `image.registry`               | NGINX image registry                                                                                  | `REGISTRY_NAME`         |
+| `image.repository`             | NGINX image repository                                                                                | `REPOSITORY_NAME/nginx` |
+| `image.digest`                 | NGINX image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag | `""`                    |
+| `image.pullPolicy`             | NGINX image pull policy                                                                               | `IfNotPresent`          |
+| `image.pullSecrets`            | Specify docker-registry secret names as an array                                                      | `[]`                    |
+| `image.debug`                  | Set to true if you would like to see extra information on logs                                        | `false`                 |
+| `automountServiceAccountToken` | Mount Service Account token in pod                                                                    | `false`                 |
+| `hostAliases`                  | Deployment pod host aliases                                                                           | `[]`                    |
+| `command`                      | Override default container command (useful when using custom images)                                  | `[]`                    |
+| `args`                         | Override default container args (useful when using custom images)                                     | `[]`                    |
+| `extraEnvVars`                 | Extra environment variables to be set on NGINX containers                                             | `[]`                    |
+| `extraEnvVarsCM`               | ConfigMap with extra environment variables                                                            | `""`                    |
+| `extraEnvVarsSecret`           | Secret with extra environment variables                                                               | `""`                    |
+
+### NGINX deployment parameters
+
+| Name                                                | Description                                                                                                                                                                                                | Value            |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| `replicaCount`                                      | Number of NGINX replicas to deploy                                                                                                                                                                         | `1`              |
+| `revisionHistoryLimit`                              | The number of old history to retain to allow rollback                                                                                                                                                      | `10`             |
+| `updateStrategy.type`                               | NGINX deployment strategy type                                                                                                                                                                             | `RollingUpdate`  |
+| `updateStrategy.rollingUpdate`                      | NGINX deployment rolling update configuration parameters                                                                                                                                                   | `{}`             |
+| `podLabels`                                         | Additional labels for NGINX pods                                                                                                                                                                           | `{}`             |
+| `podAnnotations`                                    | Annotations for NGINX pods                                                                                                                                                                                 | `{}`             |
+| `podAffinityPreset`                                 | Pod affinity preset. Ignored if `affinity` is set. Allowed values: `soft` or `hard`                                                                                                                        | `""`             |
+| `podAntiAffinityPreset`                             | Pod anti-affinity preset. Ignored if `affinity` is set. Allowed values: `soft` or `hard`                                                                                                                   | `soft`           |
+| `nodeAffinityPreset.type`                           | Node affinity preset type. Ignored if `affinity` is set. Allowed values: `soft` or `hard`                                                                                                                  | `""`             |
+| `nodeAffinityPreset.key`                            | Node label key to match Ignored if `affinity` is set.                                                                                                                                                      | `""`             |
+| `nodeAffinityPreset.values`                         | Node label values to match. Ignored if `affinity` is set.                                                                                                                                                  | `[]`             |
+| `affinity`                                          | Affinity for pod assignment                                                                                                                                                                                | `{}`             |
+| `hostNetwork`                                       | Specify if host network should be enabled for NGINX pod                                                                                                                                                    | `false`          |
+| `hostIPC`                                           | Specify if host IPC should be enabled for NGINX pod                                                                                                                                                        | `false`          |
+| `nodeSelector`                                      | Node labels for pod assignment. Evaluated as a template.                                                                                                                                                   | `{}`             |
+| `tolerations`                                       | Tolerations for pod assignment. Evaluated as a template.                                                                                                                                                   | `[]`             |
+| `priorityClassName`                                 | NGINX pods' priorityClassName                                                                                                                                                                              | `""`             |
+| `schedulerName`                                     | Name of the k8s scheduler (other than default)                                                                                                                                                             | `""`             |
+| `terminationGracePeriodSeconds`                     | In seconds, time the given to the NGINX pod needs to terminate gracefully                                                                                                                                  | `""`             |
+| `topologySpreadConstraints`                         | Topology Spread Constraints for pod assignment                                                                                                                                                             | `[]`             |
+| `podSecurityContext.enabled`                        | Enabled NGINX pods' Security Context                                                                                                                                                                       | `true`           |
+| `podSecurityContext.fsGroupChangePolicy`            | Set filesystem group change policy                                                                                                                                                                         | `Always`         |
+| `podSecurityContext.supplementalGroups`             | Set filesystem extra groups                                                                                                                                                                                | `[]`             |
+| `podSecurityContext.fsGroup`                        | Set NGINX pod's Security Context fsGroup                                                                                                                                                                   | `1001`           |
+| `podSecurityContext.sysctls`                        | sysctl settings of the NGINX pods                                                                                                                                                                          | `[]`             |
+| `containerSecurityContext.enabled`                  | Enabled containers' Security Context                                                                                                                                                                       | `true`           |
+| `containerSecurityContext.seLinuxOptions`           | Set SELinux options in container                                                                                                                                                                           | `nil`            |
+| `containerSecurityContext.runAsUser`                | Set containers' Security Context runAsUser                                                                                                                                                                 | `1001`           |
+| `containerSecurityContext.runAsGroup`               | Set containers' Security Context runAsGroup                                                                                                                                                                | `0`              |
+| `containerSecurityContext.runAsNonRoot`             | Set container's Security Context runAsNonRoot                                                                                                                                                              | `true`           |
+| `containerSecurityContext.privileged`               | Set container's Security Context privileged                                                                                                                                                                | `false`          |
+| `containerSecurityContext.readOnlyRootFilesystem`   | Set container's Security Context readOnlyRootFilesystem                                                                                                                                                    | `false`          |
+| `containerSecurityContext.allowPrivilegeEscalation` | Set container's Security Context allowPrivilegeEscalation                                                                                                                                                  | `false`          |
+| `containerSecurityContext.capabilities.drop`        | List of capabilities to be dropped                                                                                                                                                                         | `["ALL"]`        |
+| `containerSecurityContext.seccompProfile.type`      | Set container's Security Context seccomp profile                                                                                                                                                           | `RuntimeDefault` |
+| `containerPorts.http`                               | Sets http port inside NGINX container                                                                                                                                                                      | `8080`           |
+| `containerPorts.https`                              | Sets https port inside NGINX container                                                                                                                                                                     | `""`             |
+| `extraContainerPorts`                               | Array of additional container ports for the Nginx container                                                                                                                                                | `[]`             |
+| `resourcesPreset`                                   | Set container resources according to one common preset (allowed values: none, nano, small, medium, large, xlarge, 2xlarge). This is ignored if resources is set (resources is recommended for production). | `none`           |
+| `resources`                                         | Set container requests and limits for different resources like CPU or memory (essential for production workloads)                                                                                          | `{}`             |
+| `lifecycleHooks`                                    | Optional lifecycleHooks for the NGINX container                                                                                                                                                            | `{}`             |
+| `startupProbe.enabled`                              | Enable startupProbe                                                                                                                                                                                        | `false`          |
+| `startupProbe.initialDelaySeconds`                  | Initial delay seconds for startupProbe                                                                                                                                                                     | `30`             |
+| `startupProbe.periodSeconds`                        | Period seconds for startupProbe                                                                                                                                                                            | `10`             |
+| `startupProbe.timeoutSeconds`                       | Timeout seconds for startupProbe                                                                                                                                                                           | `5`              |
+| `startupProbe.failureThreshold`                     | Failure threshold for startupProbe                                                                                                                                                                         | `6`              |
+| `startupProbe.successThreshold`                     | Success threshold for startupProbe                                                                                                                                                                         | `1`              |
+| `livenessProbe.enabled`                             | Enable livenessProbe                                                                                                                                                                                       | `true`           |
+| `livenessProbe.initialDelaySeconds`                 | Initial delay seconds for livenessProbe                                                                                                                                                                    | `30`             |
+| `livenessProbe.periodSeconds`                       | Period seconds for livenessProbe                                                                                                                                                                           | `10`             |
+| `livenessProbe.timeoutSeconds`                      | Timeout seconds for livenessProbe                                                                                                                                                                          | `5`              |
+| `livenessProbe.failureThreshold`                    | Failure threshold for livenessProbe                                                                                                                                                                        | `6`              |
+| `livenessProbe.successThreshold`                    | Success threshold for livenessProbe                                                                                                                                                                        | `1`              |
+| `readinessProbe.enabled`                            | Enable readinessProbe                                                                                                                                                                                      | `true`           |
+| `readinessProbe.initialDelaySeconds`                | Initial delay seconds for readinessProbe                                                                                                                                                                   | `5`              |
+| `readinessProbe.periodSeconds`                      | Period seconds for readinessProbe                                                                                                                                                                          | `5`              |
+| `readinessProbe.timeoutSeconds`                     | Timeout seconds for readinessProbe                                                                                                                                                                         | `3`              |
+| `readinessProbe.failureThreshold`                   | Failure threshold for readinessProbe                                                                                                                                                                       | `3`              |
+| `readinessProbe.successThreshold`                   | Success threshold for readinessProbe                                                                                                                                                                       | `1`              |
+| `customStartupProbe`                                | Custom liveness probe for the Web component                                                                                                                                                                | `{}`             |
+| `customLivenessProbe`                               | Override default liveness probe                                                                                                                                                                            | `{}`             |
+| `customReadinessProbe`                              | Override default readiness probe                                                                                                                                                                           | `{}`             |
+| `autoscaling.enabled`                               | Enable autoscaling for NGINX deployment                                                                                                                                                                    | `false`          |
+| `autoscaling.minReplicas`                           | Minimum number of replicas to scale back                                                                                                                                                                   | `""`             |
+| `autoscaling.maxReplicas`                           | Maximum number of replicas to scale out                                                                                                                                                                    | `""`             |
+| `autoscaling.targetCPU`                             | Target CPU utilization percentage                                                                                                                                                                          | `""`             |
+| `autoscaling.targetMemory`                          | Target Memory utilization percentage                                                                                                                                                                       | `""`             |
+| `extraVolumes`                                      | Array to add extra volumes                                                                                                                                                                                 | `[]`             |
+| `extraVolumeMounts`                                 | Array to add extra mount                                                                                                                                                                                   | `[]`             |
+| `serviceAccount.create`                             | Enable creation of ServiceAccount for nginx pod                                                                                                                                                            | `true`           |
+| `serviceAccount.name`                               | The name of the ServiceAccount to use.                                                                                                                                                                     | `""`             |
+| `serviceAccount.annotations`                        | Annotations for service account. Evaluated as a template.                                                                                                                                                  | `{}`             |
+| `serviceAccount.automountServiceAccountToken`       | Auto-mount the service account token in the pod                                                                                                                                                            | `false`          |
+| `sidecars`                                          | Sidecar parameters                                                                                                                                                                                         | `[]`             |
+| `sidecarSingleProcessNamespace`                     | Enable sharing the process namespace with sidecars                                                                                                                                                         | `false`          |
+| `initContainers`                                    | Extra init containers                                                                                                                                                                                      | `[]`             |
+| `pdb.create`                                        | Created a PodDisruptionBudget                                                                                                                                                                              | `false`          |
+| `pdb.minAvailable`                                  | Min number of pods that must still be available after the eviction.                                                                                                                                        | `1`              |
+| `pdb.maxUnavailable`                                | Max number of pods that can be unavailable after the eviction.                                                                                                                                             | `0`              |
+
+### Custom NGINX application parameters
+
+| Name                                             | Description                                                                                                                                                                                                                                                              | Value                 |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------- |
+| `cloneStaticSiteFromGit.enabled`                 | Get the server static content from a Git repository                                                                                                                                                                                                                      | `false`               |
+| `cloneStaticSiteFromGit.image.registry`          | Git image registry                                                                                                                                                                                                                                                       | `REGISTRY_NAME`       |
+| `cloneStaticSiteFromGit.image.repository`        | Git image repository                                                                                                                                                                                                                                                     | `REPOSITORY_NAME/git` |
+| `cloneStaticSiteFromGit.image.digest`            | Git image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag                                                                                                                                                                      | `""`                  |
+| `cloneStaticSiteFromGit.image.pullPolicy`        | Git image pull policy                                                                                                                                                                                                                                                    | `IfNotPresent`        |
+| `cloneStaticSiteFromGit.image.pullSecrets`       | Specify docker-registry secret names as an array                                                                                                                                                                                                                         | `[]`                  |
+| `cloneStaticSiteFromGit.repository`              | Git Repository to clone static content from                                                                                                                                                                                                                              | `""`                  |
+| `cloneStaticSiteFromGit.branch`                  | Git branch to checkout                                                                                                                                                                                                                                                   | `""`                  |
+| `cloneStaticSiteFromGit.interval`                | Interval for sidecar container pull from the Git repository                                                                                                                                                                                                              | `60`                  |
+| `cloneStaticSiteFromGit.gitClone.command`        | Override default container command for git-clone-repository                                                                                                                                                                                                              | `[]`                  |
+| `cloneStaticSiteFromGit.gitClone.args`           | Override default container args for git-clone-repository                                                                                                                                                                                                                 | `[]`                  |
+| `cloneStaticSiteFromGit.gitSync.command`         | Override default container command for git-repo-syncer                                                                                                                                                                                                                   | `[]`                  |
+| `cloneStaticSiteFromGit.gitSync.args`            | Override default container args for git-repo-syncer                                                                                                                                                                                                                      | `[]`                  |
+| `cloneStaticSiteFromGit.gitSync.resourcesPreset` | Set container resources according to one common preset (allowed values: none, nano, small, medium, large, xlarge, 2xlarge). This is ignored if cloneStaticSiteFromGit.gitSync.resources is set (cloneStaticSiteFromGit.gitSync.resources is recommended for production). | `none`                |
+| `cloneStaticSiteFromGit.gitSync.resources`       | Set container requests and limits for different resources like CPU or memory (essential for production workloads)                                                                                                                                                        | `{}`                  |
+| `cloneStaticSiteFromGit.extraEnvVars`            | Additional environment variables to set for the in the containers that clone static site from git                                                                                                                                                                        | `[]`                  |
+| `cloneStaticSiteFromGit.extraEnvVarsSecret`      | Secret with extra environment variables                                                                                                                                                                                                                                  | `""`                  |
+| `cloneStaticSiteFromGit.extraVolumeMounts`       | Add extra volume mounts for the Git containers                                                                                                                                                                                                                           | `[]`                  |
+| `serverBlock`                                    | Custom server block to be added to NGINX configuration                                                                                                                                                                                                                   | `""`                  |
+| `existingServerBlockConfigmap`                   | ConfigMap with custom server block to be added to NGINX configuration                                                                                                                                                                                                    | `""`                  |
+| `staticSiteConfigmap`                            | Name of existing ConfigMap with the server static site content                                                                                                                                                                                                           | `""`                  |
+| `staticSitePVC`                                  | Name of existing PVC with the server static site content                                                                                                                                                                                                                 | `""`                  |
+
+### Traffic Exposure parameters
+
+| Name                                    | Description                                                                                                                      | Value                    |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| `service.type`                          | Service type                                                                                                                     | `LoadBalancer`           |
+| `service.ports.http`                    | Service HTTP port                                                                                                                | `80`                     |
+| `service.ports.https`                   | Service HTTPS port                                                                                                               | `443`                    |
+| `service.nodePorts`                     | Specify the nodePort(s) value(s) for the LoadBalancer and NodePort service types.                                                | `{}`                     |
+| `service.targetPort`                    | Target port reference value for the Loadbalancer service types can be specified explicitly.                                      | `{}`                     |
+| `service.clusterIP`                     | NGINX service Cluster IP                                                                                                         | `""`                     |
+| `service.loadBalancerIP`                | LoadBalancer service IP address                                                                                                  | `""`                     |
+| `service.loadBalancerSourceRanges`      | NGINX service Load Balancer sources                                                                                              | `[]`                     |
+| `service.loadBalancerClass`             | service Load Balancer class if service type is `LoadBalancer` (optional, cloud specific)                                         | `""`                     |
+| `service.extraPorts`                    | Extra ports to expose (normally used with the `sidecar` value)                                                                   | `[]`                     |
+| `service.sessionAffinity`               | Session Affinity for Kubernetes service, can be "None" or "ClientIP"                                                             | `None`                   |
+| `service.sessionAffinityConfig`         | Additional settings for the sessionAffinity                                                                                      | `{}`                     |
+| `service.annotations`                   | Service annotations                                                                                                              | `{}`                     |
+| `service.externalTrafficPolicy`         | Enable client source IP preservation                                                                                             | `Cluster`                |
+| `networkPolicy.enabled`                 | Specifies whether a NetworkPolicy should be created                                                                              | `true`                   |
+| `networkPolicy.allowExternal`           | Don't require server label for connections                                                                                       | `true`                   |
+| `networkPolicy.allowExternalEgress`     | Allow the pod to access any range of port and all destinations.                                                                  | `true`                   |
+| `networkPolicy.extraIngress`            | Add extra ingress rules to the NetworkPolice                                                                                     | `[]`                     |
+| `networkPolicy.extraEgress`             | Add extra ingress rules to the NetworkPolicy (ignored if allowExternalEgress=true)                                               | `[]`                     |
+| `networkPolicy.ingressNSMatchLabels`    | Labels to match to allow traffic from other namespaces                                                                           | `{}`                     |
+| `networkPolicy.ingressNSPodMatchLabels` | Pod labels to match to allow traffic from other namespaces                                                                       | `{}`                     |
+| `ingress.enabled`                       | Set to true to enable ingress record generation                                                                                  | `false`                  |
+| `ingress.selfSigned`                    | Create a TLS secret for this ingress record using self-signed certificates generated by Helm                                     | `false`                  |
+| `ingress.pathType`                      | Ingress path type                                                                                                                | `ImplementationSpecific` |
+| `ingress.apiVersion`                    | Force Ingress API version (automatically detected if not set)                                                                    | `""`                     |
+| `ingress.hostname`                      | Default host for the ingress resource                                                                                            | `nginx.local`            |
+| `ingress.path`                          | The Path to Nginx. You may need to set this to '/*' in order to use this with ALB ingress controllers.                           | `/`                      |
+| `ingress.annotations`                   | Additional annotations for the Ingress resource. To enable certificate autogeneration, place here your cert-manager annotations. | `{}`                     |
+| `ingress.ingressClassName`              | Set the ingerssClassName on the ingress record for k8s 1.18+                                                                     | `""`                     |
+| `ingress.tls`                           | Create TLS Secret                                                                                                                | `false`                  |
+| `ingress.tlsWwwPrefix`                  | Adds www subdomain to default cert                                                                                               | `false`                  |
+| `ingress.extraHosts`                    | The list of additional hostnames to be covered with this ingress record.                                                         | `[]`                     |
+| `ingress.extraPaths`                    | Any additional arbitrary paths that may need to be added to the ingress under the main host.                                     | `[]`                     |
+| `ingress.extraTls`                      | The tls configuration for additional hostnames to be covered with this ingress record.                                           | `[]`                     |
+| `ingress.secrets`                       | If you're providing your own certificates, please use this to add the certificates as secrets                                    | `[]`                     |
+| `ingress.extraRules`                    | The list of additional rules to be added to this ingress record. Evaluated as a template                                         | `[]`                     |
+| `healthIngress.enabled`                 | Set to true to enable health ingress record generation                                                                           | `false`                  |
+| `healthIngress.selfSigned`              | Create a TLS secret for this ingress record using self-signed certificates generated by Helm                                     | `false`                  |
+| `healthIngress.pathType`                | Ingress path type                                                                                                                | `ImplementationSpecific` |
+| `healthIngress.hostname`                | When the health ingress is enabled, a host pointing to this will be created                                                      | `example.local`          |
+| `healthIngress.path`                    | Default path for the ingress record                                                                                              | `/`                      |
+| `healthIngress.annotations`             | Additional annotations for the Ingress resource. To enable certificate autogeneration, place here your cert-manager annotations. | `{}`                     |
+| `healthIngress.tls`                     | Enable TLS configuration for the hostname defined at `healthIngress.hostname` parameter                                          | `false`                  |
+| `healthIngress.extraHosts`              | An array with additional hostname(s) to be covered with the ingress record                                                       | `[]`                     |
+| `healthIngress.extraPaths`              | An array with additional arbitrary paths that may need to be added to the ingress under the main host                            | `[]`                     |
+| `healthIngress.extraTls`                | TLS configuration for additional hostnames to be covered                                                                         | `[]`                     |
+| `healthIngress.secrets`                 | TLS Secret configuration                                                                                                         | `[]`                     |
+| `healthIngress.ingressClassName`        | IngressClass that will be be used to implement the Ingress (Kubernetes 1.18+)                                                    | `""`                     |
+| `healthIngress.extraRules`              | The list of additional rules to be added to this ingress record. Evaluated as a template                                         | `[]`                     |
+
+### Metrics parameters
+
+| Name                                       | Description                                                                                                                                                                                                                | Value                            |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| `metrics.enabled`                          | Start a Prometheus exporter sidecar container                                                                                                                                                                              | `false`                          |
+| `metrics.image.registry`                   | NGINX Prometheus exporter image registry                                                                                                                                                                                   | `REGISTRY_NAME`                  |
+| `metrics.image.repository`                 | NGINX Prometheus exporter image repository                                                                                                                                                                                 | `REPOSITORY_NAME/nginx-exporter` |
+| `metrics.image.digest`                     | NGINX Prometheus exporter image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag                                                                                                  | `""`                             |
+| `metrics.image.pullPolicy`                 | NGINX Prometheus exporter image pull policy                                                                                                                                                                                | `IfNotPresent`                   |
+| `metrics.image.pullSecrets`                | Specify docker-registry secret names as an array                                                                                                                                                                           | `[]`                             |
+| `metrics.port`                             | NGINX Container Status Port scraped by Prometheus Exporter                                                                                                                                                                 | `""`                             |
+| `metrics.extraArgs`                        | Extra arguments for Prometheus exporter                                                                                                                                                                                    | `[]`                             |
+| `metrics.containerPorts.metrics`           | Prometheus exporter container port                                                                                                                                                                                         | `9113`                           |
+| `metrics.podAnnotations`                   | Additional annotations for NGINX Prometheus exporter pod(s)                                                                                                                                                                | `{}`                             |
+| `metrics.securityContext.enabled`          | Enabled NGINX Exporter containers' Security Context                                                                                                                                                                        | `false`                          |
+| `metrics.securityContext.seLinuxOptions`   | Set SELinux options in container                                                                                                                                                                                           | `nil`                            |
+| `metrics.securityContext.runAsUser`        | Set NGINX Exporter container's Security Context runAsUser                                                                                                                                                                  | `1001`                           |
+| `metrics.service.port`                     | NGINX Prometheus exporter service port                                                                                                                                                                                     | `9113`                           |
+| `metrics.service.annotations`              | Annotations for the Prometheus exporter service                                                                                                                                                                            | `{}`                             |
+| `metrics.resourcesPreset`                  | Set container resources according to one common preset (allowed values: none, nano, small, medium, large, xlarge, 2xlarge). This is ignored if metrics.resources is set (metrics.resources is recommended for production). | `none`                           |
+| `metrics.resources`                        | Set container requests and limits for different resources like CPU or memory (essential for production workloads)                                                                                                          | `{}`                             |
+| `metrics.serviceMonitor.enabled`           | Creates a Prometheus Operator ServiceMonitor (also requires `metrics.enabled` to be `true`)                                                                                                                                | `false`                          |
+| `metrics.serviceMonitor.namespace`         | Namespace in which Prometheus is running                                                                                                                                                                                   | `""`                             |
+| `metrics.serviceMonitor.jobLabel`          | The name of the label on the target service to use as the job name in prometheus.                                                                                                                                          | `""`                             |
+| `metrics.serviceMonitor.interval`          | Interval at which metrics should be scraped.                                                                                                                                                                               | `""`                             |
+| `metrics.serviceMonitor.scrapeTimeout`     | Timeout after which the scrape is ended                                                                                                                                                                                    | `""`                             |
+| `metrics.serviceMonitor.selector`          | Prometheus instance selector labels                                                                                                                                                                                        | `{}`                             |
+| `metrics.serviceMonitor.labels`            | Additional labels that can be used so PodMonitor will be discovered by Prometheus                                                                                                                                          | `{}`                             |
+| `metrics.serviceMonitor.relabelings`       | RelabelConfigs to apply to samples before scraping                                                                                                                                                                         | `[]`                             |
+| `metrics.serviceMonitor.metricRelabelings` | MetricRelabelConfigs to apply to samples before ingestion                                                                                                                                                                  | `[]`                             |
+| `metrics.serviceMonitor.honorLabels`       | honorLabels chooses the metric's labels on collisions with target labels                                                                                                                                                   | `false`                          |
+| `metrics.prometheusRule.enabled`           | if `true`, creates a Prometheus Operator PrometheusRule (also requires `metrics.enabled` to be `true` and `metrics.prometheusRule.rules`)                                                                                  | `false`                          |
+| `metrics.prometheusRule.namespace`         | Namespace for the PrometheusRule Resource (defaults to the Release Namespace)                                                                                                                                              | `""`                             |
+| `metrics.prometheusRule.additionalLabels`  | Additional labels that can be used so PrometheusRule will be discovered by Prometheus                                                                                                                                      | `{}`                             |
+| `metrics.prometheusRule.rules`             | Prometheus Rule definitions                                                                                                                                                                                                | `[]`                             |
+
+Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
+
+```console
+helm install my-release \
+  --set imagePullPolicy=Always \
+    oci://REGISTRY_NAME/REPOSITORY_NAME/nginx
+```
+
+> Note: You need to substitute the placeholders `REGISTRY_NAME` and `REPOSITORY_NAME` with a reference to your Helm chart registry and repository. For example, in the case of Bitnami, you need to use `REGISTRY_NAME=registry-1.docker.io` and `REPOSITORY_NAME=bitnamicharts`.
+
+The above command sets the `imagePullPolicy` to `Always`.
+
+Alternatively, a YAML file that specifies the values for the parameters can be provided while installing the chart. For example,
+
+```console
+helm install my-release -f values.yaml oci://REGISTRY_NAME/REPOSITORY_NAME/nginx
+```
+
+> Note: You need to substitute the placeholders `REGISTRY_NAME` and `REPOSITORY_NAME` with a reference to your Helm chart registry and repository. For example, in the case of Bitnami, you need to use `REGISTRY_NAME=registry-1.docker.io` and `REPOSITORY_NAME=bitnamicharts`.
+> **Tip**: You can use the default [values.yaml](https://github.com/bitnami/charts/tree/main/bitnami/nginx/values.yaml)
 
 ## Troubleshooting
 
@@ -442,8 +467,10 @@ Use the workaround below to upgrade from versions previous to 5.0.0. The followi
 
 ```console
 kubectl delete deployment nginx --cascade=false
-helm upgrade nginx oci://registry-1.docker.io/bitnamicharts/nginx
+helm upgrade nginx oci://REGISTRY_NAME/REPOSITORY_NAME/nginx
 ```
+
+> Note: You need to substitute the placeholders `REGISTRY_NAME` and `REPOSITORY_NAME` with a reference to your Helm chart registry and repository. For example, in the case of Bitnami, you need to use `REGISTRY_NAME=registry-1.docker.io` and `REPOSITORY_NAME=bitnamicharts`.
 
 ### To 1.0.0
 
@@ -454,19 +481,9 @@ Use the workaround below to upgrade from versions previous to 1.0.0. The followi
 kubectl patch deployment nginx --type=json -p='[{"op": "remove", "path": "/spec/selector/matchLabels/chart"}]'
 ```
 
-## Bitnami Kubernetes Documentation
-
-Bitnami Kubernetes documentation is available at [https://docs.bitnami.com/](https://docs.bitnami.com/). You can find there the following resources:
-
-- [Documentation for NGINX Helm chart](https://docs.bitnami.com/kubernetes/infrastructure/nginx/)
-- [Get Started with Kubernetes guides](https://docs.bitnami.com/kubernetes/)
-- [Bitnami Helm charts documentation](https://docs.bitnami.com/kubernetes/apps/)
-- [Kubernetes FAQs](https://docs.bitnami.com/kubernetes/faq/)
-- [Kubernetes Developer guides](https://docs.bitnami.com/tutorials/)
-
 ## License
 
-Copyright &copy; 2023 Bitnami
+Copyright &copy; 2024 Broadcom. The term "Broadcom" refers to Broadcom Inc. and/or its subsidiaries.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

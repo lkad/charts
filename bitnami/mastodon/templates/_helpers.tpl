@@ -1,4 +1,9 @@
 {{/*
+Copyright VMware, Inc.
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
+{{/*
 Return the proper Mastodon image name
 */}}
 {{- define "mastodon.image" -}}
@@ -24,6 +29,22 @@ Return the proper Mastodon web fullname
 */}}
 {{- define "mastodon.web.fullname" -}}
 {{- printf "%s-%s" (include "common.names.fullname" .) "web" | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{/*
+Return the proper Mastodon tootctlMediaManagement fullname
+*/}}
+{{- define "mastodon.tootctlMediaManagement.fullname" -}}
+{{- printf "%s-%s" (include "common.names.fullname" .) "tootctl-media" | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{/*
+Return the proper Mastodon tootctl media option to include follows
+*/}}
+{{- define "mastodon.tootctlMediaManagement.includeFollows" -}}
+    {{- if .Values.tootctlMediaManagement.includeFollows -}}
+    	{{- print "--include-follows" -}}	
+    {{- end -}}
 {{- end -}}
 
 {{/*
@@ -503,6 +524,17 @@ Return the SMTP Secret Name
 {{- end -}}
 
 {{/*
+Retrieve SMTP server key
+*/}}
+{{- define "mastodon.smtp.serverKey" -}}
+{{- if .Values.smtp.existingSecretServerKey -}}
+    {{- print .Values.smtp.existingSecretServerKey -}}
+{{- else -}}
+    {{- print "server" -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Retrieve SMTP login key
 */}}
 {{- define "mastodon.smtp.loginKey" -}}
@@ -535,7 +567,7 @@ Init container definition for waiting for the database to be ready
   image: {{ template "mastodon.image" . }}
   imagePullPolicy: {{ .Values.image.pullPolicy }}
   {{- if .Values.web.containerSecurityContext.enabled }}
-  securityContext: {{- omit .Values.web.containerSecurityContext "enabled" | toYaml | nindent 4 }}
+  securityContext: {{- include "common.compatibility.renderSecurityContext" (dict "secContext" .Values.web.containerSecurityContext "context" $) | nindent 4 }}
   {{- end }}
   command:
     - bash
@@ -570,6 +602,10 @@ Init container definition for waiting for the database to be ready
       value: {{ include "mastodon.database.user" . }}
     - name: MASTODON_DATABASE_NAME
       value: {{ include "mastodon.database.name" . }}
+  volumeMounts:
+    - name: empty-dir
+      mountPath: /tmp
+      subPath: tmp-dir
 {{- end -}}
 
 {{/*
@@ -583,7 +619,7 @@ Init container definition for waiting for Redis(TM) to be ready
   image: {{ template "mastodon.image" . }}
   imagePullPolicy: {{ .Values.image.pullPolicy }}
   {{- if .Values.web.containerSecurityContext.enabled }}
-  securityContext: {{- omit .Values.web.containerSecurityContext "enabled" | toYaml | nindent 4 }}
+  securityContext: {{- include "common.compatibility.renderSecurityContext" (dict "secContext" .Values.web.containerSecurityContext "context" $) | nindent 4 }}
   {{- end }}
   command:
     - bash
@@ -616,6 +652,10 @@ Init container definition for waiting for Redis(TM) to be ready
           name: {{ include "mastodon.redis.secretName" . }}
           key: {{ include "mastodon.redis.passwordKey" . }}
     {{- end }}
+  volumeMounts:
+    - name: empty-dir
+      mountPath: /tmp
+      subPath: tmp-dir
 {{- end -}}
 
 {{/*
@@ -626,7 +666,7 @@ Init container definition for waiting for Elasticsearch to be ready
   image: {{ template "mastodon.image" . }}
   imagePullPolicy: {{ .Values.image.pullPolicy }}
   {{- if .Values.web.containerSecurityContext.enabled }}
-  securityContext: {{- omit .Values.web.containerSecurityContext "enabled" | toYaml | nindent 4 }}
+  securityContext: {{- include "common.compatibility.renderSecurityContext" (dict "secContext" .Values.web.containerSecurityContext "context" $) | nindent 4 }}
   {{- end }}
   command:
     - bash
@@ -659,6 +699,10 @@ Init container definition for waiting for Elasticsearch to be ready
           name: {{ include "mastodon.elasticsearch.secretName" . }}
           key: {{ include "mastodon.elasticsearch.passwordKey" . }}
     {{- end }}
+  volumeMounts:
+    - name: empty-dir
+      mountPath: /tmp
+      subPath: tmp-dir
 {{- end -}}
 
 {{/*
@@ -669,7 +713,7 @@ Init container definition for waiting for S3 to be ready
   image: {{ template "mastodon.image" . }}
   imagePullPolicy: {{ .Values.image.pullPolicy }}
   {{- if .Values.web.containerSecurityContext.enabled }}
-  securityContext: {{- omit .Values.web.containerSecurityContext "enabled" | toYaml | nindent 4 }}
+  securityContext: {{- include "common.compatibility.renderSecurityContext" (dict "secContext" .Values.web.containerSecurityContext "context" $) | nindent 4 }}
   {{- end }}
   command:
     - bash
@@ -695,6 +739,10 @@ Init container definition for waiting for S3 to be ready
       value: {{ include "mastodon.s3.host" . | quote }}
     - name: MASTODON_S3_PORT_NUMBER
       value: {{ include "mastodon.s3.port" . | quote }}
+  volumeMounts:
+    - name: empty-dir
+      mountPath: /tmp
+      subPath: tmp-dir
 {{- end -}}
 
 {{/*
@@ -705,7 +753,7 @@ Init container definition for waiting for Mastodon Web to be ready
   image: {{ template "mastodon.image" . }}
   imagePullPolicy: {{ .Values.image.pullPolicy }}
   {{- if .Values.web.containerSecurityContext.enabled }}
-  securityContext: {{- omit .Values.web.containerSecurityContext "enabled" | toYaml | nindent 4 }}
+  securityContext: {{- include "common.compatibility.renderSecurityContext" (dict "secContext" .Values.web.containerSecurityContext "context" $) | nindent 4 }}
   {{- end }}
   command:
     - bash
@@ -731,6 +779,10 @@ Init container definition for waiting for Mastodon Web to be ready
       value: {{ include "mastodon.web.fullname" . | quote }}
     - name: MASTODON_WEB_PORT
       value: {{ .Values.web.service.ports.http | quote }}
+  volumeMounts:
+    - name: empty-dir
+      mountPath: /tmp
+      subPath: tmp-dir
 {{- end -}}
 
 {{/*

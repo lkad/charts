@@ -1,3 +1,8 @@
+{{/*
+Copyright VMware, Inc.
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
 {{/* vim: set filetype=mustache: */}}
 
 {{- define "mysql.primary.fullname" -}}
@@ -48,6 +53,17 @@ Get the initialization scripts ConfigMap name.
     {{- printf "%s" (tpl .Values.initdbScriptsConfigMap $) -}}
 {{- else -}}
     {{- printf "%s-init-scripts" (include "mysql.primary.fullname" .) -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Get the startdb scripts ConfigMap name.
+*/}}
+{{- define "mysql.startdbScriptsCM" -}}
+{{- if .Values.startdbScriptsConfigMap -}}
+    {{- printf "%s" (tpl .Values.startdbScriptsConfigMap $) -}}
+{{- else -}}
+    {{- printf "%s-start-scripts" (include "mysql.primary.fullname" .) -}}
 {{- end -}}
 {{- end -}}
 

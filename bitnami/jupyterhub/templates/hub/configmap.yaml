@@ -1,12 +1,14 @@
+{{- /*
+Copyright VMware, Inc.
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
 {{- if not .Values.hub.existingConfigmap }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  labels: {{- include "common.labels.standard" . | nindent 4 }}
+  labels: {{- include "common.labels.standard" ( dict "customLabels" .Values.commonLabels "context" $ ) | nindent 4 }}
     app.kubernetes.io/component: hub
-    {{- if .Values.commonLabels }}
-    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
-    {{- end }}
   name: {{ include "jupyterhub.hub.name" . }}
   namespace: {{ .Release.Namespace | quote }}
   {{- if .Values.commonAnnotations }}
@@ -164,6 +166,7 @@ data:
         ("uid", None),
         ("fs_gid", None),
         ("service_account", "serviceAccountName"),
+        ("automount_service_account_token", None),
         ("storage_extra_labels", "storage.extraLabels"),
         # ("tolerations", "extraTolerations"), # Managed manually below
         ("node_selector", None),
@@ -173,6 +176,8 @@ data:
         ("pod_affinity_preferred", "extraPodAffinity.preferred"),
         ("pod_anti_affinity_required", "extraPodAntiAffinity.required"),
         ("pod_anti_affinity_preferred", "extraPodAntiAffinity.preferred"),
+        ("pod_security_context", None),
+        ("container_security_context", None),
         ("lifecycle_hooks", None),
         ("init_containers", None),
         ("extra_containers", None),

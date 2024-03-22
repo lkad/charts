@@ -1,4 +1,9 @@
 {{/*
+Copyright VMware, Inc.
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
+{{/*
 Return the proper SonarQube(TM) image name
 */}}
 {{- define "sonarqube.image" -}}
@@ -44,7 +49,7 @@ Return the proper sysctl image name
 Return the proper Container Image Registry Secret Names
 */}}
 {{- define "sonarqube.imagePullSecrets" -}}
-{{- include "common.images.pullSecrets" (dict "images" (list .Values.image .Values.volumePermissions.image .Values.sysctl.image .Values.metrics.jmx.image) "global" .Values.global) -}}
+{{- include "common.images.renderPullSecrets" (dict "images" (list .Values.image .Values.volumePermissions.image .Values.sysctl.image .Values.metrics.jmx.image) "context" $) -}}
 {{- end -}}
 
 {{/*

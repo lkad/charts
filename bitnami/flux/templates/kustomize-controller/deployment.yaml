@@ -1,15 +1,19 @@
+{{- /*
+Copyright VMware, Inc.
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
 {{- if .Values.kustomizeController.enabled }}
 apiVersion: {{ include "common.capabilities.deployment.apiVersion" . }}
 kind: Deployment
 metadata:
   name: {{ template "flux.kustomize-controller.fullname" . }}
   namespace: {{ include "common.names.namespace" . | quote }}
-  labels: {{- include "common.labels.standard" . | nindent 4 }}
+  {{- $versionLabel := dict "app.kubernetes.io/version" ( include "common.images.version" ( dict "imageRoot" .Values.kustomizeController.image "chart" .Chart ) ) }}
+  {{- $labels := include "common.tplvalues.merge" ( dict "values" ( list .Values.commonLabels $versionLabel ) "context" . ) }}
+  labels: {{- include "common.labels.standard" ( dict "customLabels" $labels "context" $ ) | nindent 4 }}
     app.kubernetes.io/part-of: flux
     app.kubernetes.io/component: kustomize-controller
-    {{- if .Values.commonLabels }}
-    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
-    {{- end }}
   {{- if .Values.commonAnnotations }}
   annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
   {{- end }}
@@ -20,25 +24,22 @@ spec:
   {{- if .Values.kustomizeController.updateStrategy }}
   strategy: {{- toYaml .Values.kustomizeController.updateStrategy | nindent 4 }}
   {{- end }}
+  {{- $podLabels := include "common.tplvalues.merge" ( dict "values" ( list .Values.kustomizeController.podLabels .Values.commonLabels $versionLabel ) "context" . ) }}
   selector:
-    matchLabels: {{- include "common.labels.matchLabels" . | nindent 6 }}
+    matchLabels: {{- include "common.labels.matchLabels" ( dict "customLabels" $podLabels "context" $ ) | nindent 6 }}
       app.kubernetes.io/component: kustomize-controller
   template:
     metadata:
       {{- if .Values.kustomizeController.podAnnotations }}
       annotations: {{- include "common.tplvalues.render" (dict "value" .Values.kustomizeController.podAnnotations "context" $) | nindent 8 }}
       {{- end }}
-      labels: {{- include "common.labels.standard" . | nindent 8 }}
+      labels: {{- include "common.labels.standard" ( dict "customLabels" $podLabels "context" $ ) | nindent 8 }}
+        app.kubernetes.io/part-of: flux
         app.kubernetes.io/component: kustomize-controller
-        {{- if .Values.kustomizeController.podLabels }}
-        {{- include "common.tplvalues.render" (dict "value" .Values.kustomizeController.podLabels "context" $) | nindent 8 }}
-        {{- end }}
-        {{- if .Values.commonLabels }}
-        {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 8 }}
-        {{- end }}
     spec:
       serviceAccountName: {{ template "flux.kustomize-controller.serviceAccountName" . }}
       {{- include "flux.imagePullSecrets" . | nindent 6 }}
+      automountServiceAccountToken: {{ .Values.kustomizeController.automountServiceAccountToken }}
       {{- if .Values.kustomizeController.hostAliases }}
       hostAliases: {{- include "common.tplvalues.render" (dict "value" .Values.kustomizeController.hostAliases "context" $) | nindent 8 }}
       {{- end }}
@@ -46,8 +47,8 @@ spec:
       affinity: {{- include "common.tplvalues.render" ( dict "value" .Values.kustomizeController.affinity "context" $) | nindent 8 }}
       {{- else }}
       affinity:
-        podAffinity: {{- include "common.affinities.pods" (dict "type" .Values.kustomizeController.podAffinityPreset "component" "kustomize-controller" "context" $) | nindent 10 }}
-        podAntiAffinity: {{- include "common.affinities.pods" (dict "type" .Values.kustomizeController.podAntiAffinityPreset "component" "kustomize-controller" "context" $) | nindent 10 }}
+        podAffinity: {{- include "common.affinities.pods" (dict "type" .Values.kustomizeController.podAffinityPreset "component" "kustomize-controller" "customLabels" $podLabels "context" $) | nindent 10 }}
+        podAntiAffinity: {{- include "common.affinities.pods" (dict "type" .Values.kustomizeController.podAntiAffinityPreset "component" "kustomize-controller" "customLabels" $podLabels "context" $) | nindent 10 }}
         nodeAffinity: {{- include "common.affinities.nodes" (dict "type" .Values.kustomizeController.nodeAffinityPreset.type "key" .Values.kustomizeController.nodeAffinityPreset.key "values" .Values.kustomizeController.nodeAffinityPreset.values) | nindent 10 }}
       {{- end }}
       {{- if .Values.kustomizeController.nodeSelector }}
@@ -66,7 +67,7 @@ spec:
       topologySpreadConstraints: {{- include "common.tplvalues.render" (dict "value" .Values.kustomizeController.topologySpreadConstraints "context" .) | nindent 8 }}
       {{- end }}
       {{- if .Values.kustomizeController.podSecurityContext.enabled }}
-      securityContext: {{- omit .Values.kustomizeController.podSecurityContext "enabled" | toYaml | nindent 8 }}
+      securityContext: {{- include "common.compatibility.renderSecurityContext" (dict "secContext" .Values.kustomizeController.podSecurityContext "context" $) | nindent 8 }}
       {{- end }}
       {{- if .Values.kustomizeController.terminationGracePeriodSeconds }}
       terminationGracePeriodSeconds: {{ .Values.kustomizeController.terminationGracePeriodSeconds }}
@@ -80,7 +81,7 @@ spec:
           image: {{ template "flux.kustomize-controller.image" . }}
           imagePullPolicy: {{ .Values.kustomizeController.image.pullPolicy }}
           {{- if .Values.kustomizeController.containerSecurityContext.enabled }}
-          securityContext: {{- omit .Values.kustomizeController.containerSecurityContext "enabled" | toYaml | nindent 12 }}
+          securityContext: {{- include "common.compatibility.renderSecurityContext" (dict "secContext" .Values.kustomizeController.containerSecurityContext "context" $) | nindent 12 }}
           {{- end }}
           {{- if .Values.diagnosticMode.enabled }}
           command: {{- include "common.tplvalues.render" (dict "value" .Values.diagnosticMode.command "context" $) | nindent 12 }}
@@ -93,7 +94,7 @@ spec:
           args: {{- include "common.tplvalues.render" (dict "value" .Values.kustomizeController.args "context" $) | nindent 12 }}
           {{- else }}
           args:
-            - --watch-all-namespaces
+            - --watch-all-namespaces={{ .Values.kustomizeController.watchAllNamespaces }}
             {{- if .Values.kustomizeController.image.debug }}
             - --log-level=debug
             {{- else }}
@@ -123,6 +124,8 @@ spec:
             {{- end }}
           {{- if .Values.kustomizeController.resources }}
           resources: {{- toYaml .Values.kustomizeController.resources | nindent 12 }}
+          {{- else if ne .Values.kustomizeController.resourcesPreset "none" }}
+          resources: {{- include "common.resources.preset" (dict "type" .Values.kustomizeController.resourcesPreset) | nindent 12 }}
           {{- end }}
           ports:
             - name: http-metrics
@@ -159,8 +162,9 @@ spec:
           lifecycle: {{- include "common.tplvalues.render" (dict "value" .Values.kustomizeController.lifecycleHooks "context" $) | nindent 12 }}
           {{- end }}
           volumeMounts:
-            - name: tmp
+            - name: empty-dir
               mountPath: /tmp
+              subPath: tmp-dir
           {{- if .Values.kustomizeController.extraVolumeMounts }}
           {{- include "common.tplvalues.render" (dict "value" .Values.kustomizeController.extraVolumeMounts "context" $) | nindent 12 }}
           {{- end }}
@@ -168,7 +172,7 @@ spec:
         {{- include "common.tplvalues.render" ( dict "value" .Values.kustomizeController.sidecars "context" $) | nindent 8 }}
         {{- end }}
       volumes:
-        - name: tmp
+        - name: empty-dir
           emptyDir: {}
         {{- if .Values.kustomizeController.extraVolumes }}
         {{- include "common.tplvalues.render" (dict "value" .Values.kustomizeController.extraVolumes "context" $) | nindent 8 }}

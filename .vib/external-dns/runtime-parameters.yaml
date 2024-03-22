@@ -1,9 +1,6 @@
 containerPorts:
   http: 7980
-cloudflare:
-  apiKey: testingapikey1234
-  email: test@test.org
-provider: cloudflare
+provider: inmemory
 service:
   ports:
     http: 80
@@ -17,4 +14,5 @@ rbac:
 podSecurityContext:
   enabled: true
   fsGroup: 1002
+containerSecurityContext:
   runAsUser: 1002

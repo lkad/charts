@@ -1,10 +1,13 @@
+# Copyright VMware, Inc.
+# SPDX-License-Identifier: APACHE-2.0
+
 file:
   /bitnami/promtail/conf/promtail.yaml:
     mode: "0644"
     filetype: file
     exists: true
     owner: root
-    contains:
+    contents:
     - /http_listen_port.*{{ .Vars.promtail.containerPorts.http }}/
 http:
   http://grafana-loki-promtail:{{ .Vars.promtail.service.ports.http }}/config:

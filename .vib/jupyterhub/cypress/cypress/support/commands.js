@@ -1,3 +1,8 @@
+/*
+ * Copyright VMware, Inc.
+ * SPDX-License-Identifier: APACHE-2.0
+ */
+
 const COMMAND_DELAY = 2000;
 
 for (const command of ['click']) {
@@ -20,7 +25,8 @@ Cypress.Commands.add(
     cy.get('#password_input').type(password);
     cy.get('#login_submit').click();
     // The authentication is not completed until the page is rendered
-    cy.contains('Launcher');
+    // Accessing the for the first time may take extra-time: "Your server is starting up"
+    cy.contains('Launcher', {timeout: 60000});
   }
 );
 

@@ -1,6 +1,6 @@
 <!--- app-name: OpenCart -->
 
-# OpenCart packaged by Bitnami
+# Bitnami package for OpenCart
 
 OpenCart is free open source ecommerce platform for online merchants. OpenCart provides a professional and reliable foundation from which to build a successful online store.
 
@@ -14,6 +14,8 @@ Trademarks: This software listing is packaged by Bitnami. The respective tradema
 helm install my-release oci://registry-1.docker.io/bitnamicharts/opencart
 ```
 
+Looking to use OpenCart in production? Try [VMware Tanzu Application Catalog](https://bitnami.com/enterprise), the enterprise edition of Bitnami Application Catalog.
+
 ## Introduction
 
 This chart bootstraps an [OpenCart](https://github.com/bitnami/containers/tree/main/bitnami/opencart) deployment on a [Kubernetes](https://kubernetes.io) cluster using the [Helm](https://helm.sh) package manager.
@@ -24,8 +26,8 @@ Bitnami charts can be used with [Kubeapps](https://kubeapps.dev/) for deployment
 
 ## Prerequisites
 
-- Kubernetes 1.19+
-- Helm 3.2.0+
+- Kubernetes 1.23+
+- Helm 3.8.0+
 - PV provisioner support in the underlying infrastructure
 - ReadWriteMany volumes for deployment scaling
 
@@ -34,32 +36,103 @@ Bitnami charts can be used with [Kubeapps](https://kubeapps.dev/) for deployment
 To install the chart with the release name `my-release`:
 
 ```console
-helm install my-release oci://registry-1.docker.io/bitnamicharts/opencart
+helm install my-release oci://REGISTRY_NAME/REPOSITORY_NAME/opencart
 ```
+
+> Note: You need to substitute the placeholders `REGISTRY_NAME` and `REPOSITORY_NAME` with a reference to your Helm chart registry and repository. For example, in the case of Bitnami, you need to use `REGISTRY_NAME=registry-1.docker.io` and `REPOSITORY_NAME=bitnamicharts`.
 
 The command deploys OpenCart on the Kubernetes cluster in the default configuration. The [Parameters](#parameters) section lists the parameters that can be configured during installation.
 
 > **Tip**: List all releases using `helm list`
 
-## Uninstalling the Chart
+## Configuration and installation details
 
-To uninstall/delete the `my-release` deployment:
+### Resource requests and limits
+
+Bitnami charts allow setting resource requests and limits for all containers inside the chart deployment. These are inside the `resources` value (check parameter table). Setting requests is essential for production workloads and these should be adapted to your specific use case.
+
+To make this process easier, the chart contains the `resourcesPreset` values, which automatically sets the `resources` section according to different presets. Check these presets in [the bitnami/common chart](https://github.com/bitnami/charts/blob/main/bitnami/common/templates/_resources.tpl#L15). However, in production workloads using `resourcePreset` is discouraged as it may not fully adapt to your specific needs. Find more information on container resource management in the [official Kubernetes documentation](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/).
+
+### [Rolling VS Immutable tags](https://docs.bitnami.com/tutorials/understand-rolling-tags-containers)
+
+It is strongly recommended to use immutable tags in a production environment. This ensures your deployment does not change automatically if the same tag is updated with a different image.
+
+Bitnami will release a new chart updating its containers if a new version of the main container, significant changes, or critical vulnerabilities exist.
+
+### Image
+
+The `image` parameter allows specifying which image will be pulled for the chart.
+
+#### Private registry
+
+If you configure the `image` value to one in a private registry, you will need to [specify an image pull secret](https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod).
+
+1. Manually create image pull secret(s) in the namespace. See [this YAML example reference](https://kubernetes.io/docs/concepts/containers/images/#creating-a-secret-with-a-docker-config). Consult your image registry's documentation about getting the appropriate secret.
+2. Note that the `imagePullSecrets` configuration value cannot currently be passed to helm using the `--set` parameter, so you must supply these using a `values.yaml` file, such as:
+
+    ```yaml
+    imagePullSecrets:
+      - name: SECRET_NAME
+    ```
+
+3. Install the chart
+
+### Setting Pod's affinity
+
+This chart allows you to set your custom affinity using the `affinity` parameter. Find more information about Pod's affinity in the [kubernetes documentation](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity).
+
+As an alternative, you can use of the preset configurations for pod affinity, pod anti-affinity, and node affinity available at the [bitnami/common](https://github.com/bitnami/charts/tree/main/bitnami/common#affinities) chart. To do so, set the `podAffinityPreset`, `podAntiAffinityPreset`, or `nodeAffinityPreset` parameters.
+
+## Persistence
+
+The [Bitnami OpenCart](https://github.com/bitnami/containers/tree/main/bitnami/opencart) image stores the OpenCart data and configurations at the `/bitnami/opencart` path of the container.
+
+Persistent Volume Claims are used to keep the data across deployments. This is known to work in GCE, AWS, and minikube.
+See the [Parameters](#parameters) section to configure the PVC or to disable persistence.
+
+### Existing PersistentVolumeClaim
+
+1. Create the PersistentVolume
+2. Create the PersistentVolumeClaim
+3. Install the chart
 
 ```console
-helm delete my-release
+helm install my-release --set persistence.existingClaim=PVC_NAME oci://REGISTRY_NAME/REPOSITORY_NAME/prestashop
 ```
 
-The command removes all the Kubernetes components associated with the chart and deletes the release.
+> Note: You need to substitute the placeholders `REGISTRY_NAME` and `REPOSITORY_NAME` with a reference to your Helm chart registry and repository. For example, in the case of Bitnami, you need to use `REGISTRY_NAME=registry-1.docker.io` and `REPOSITORY_NAME=bitnamicharts`.
+
+### Host path
+
+#### System compatibility
+
+- The local filesystem accessibility to a container in a pod with `hostPath` has been tested on OSX/MacOS with xhyve, and Linux with VirtualBox.
+- Windows has not been tested with the supported VM drivers. Minikube does however officially support [Mounting Host Folders](https://minikube.sigs.k8s.io/docs/handbook/mount/) per pod. Or you may manually sync your container whenever host files are changed with tools like [docker-sync](https://github.com/EugenMayer/docker-sync) or [docker-bg-sync](https://github.com/cweagans/docker-bg-sync).
+
+#### Mounting steps
+
+1. The specified `hostPath` directory must already exist (create one if it does not).
+2. Install the chart
+
+    ```console
+    helm install my-release --set persistence.hostPath=/PATH/TO/HOST/MOUNT oci://REGISTRY_NAME/REPOSITORY_NAME/prestashop
+    ```
+
+    > Note: You need to substitute the placeholders `REGISTRY_NAME` and `REPOSITORY_NAME` with a reference to your Helm chart registry and repository. For example, in the case of Bitnami, you need to use `REGISTRY_NAME=registry-1.docker.io` and `REPOSITORY_NAME=bitnamicharts`.
+
+    This will mount the `prestashop-data` volume into the `hostPath` directory. The site data will be persisted if the mount path contains valid data, else the site data will be initialized at first launch.
+3. Because the container cannot control the host machine's directory permissions, you must set the PrestaShop file directory permissions yourself and disable or clear PrestaShop cache.
 
 ## Parameters
 
 ### Global parameters
 
-| Name                      | Description                                     | Value |
-| ------------------------- | ----------------------------------------------- | ----- |
-| `global.imageRegistry`    | Global Docker image registry                    | `""`  |
-| `global.imagePullSecrets` | Global Docker registry secret names as an array | `[]`  |
-| `global.storageClass`     | Global StorageClass for Persistent Volume(s)    | `""`  |
+| Name                                                  | Description                                                                                                                                                                                                                                                                                                                                                         | Value      |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `global.imageRegistry`                                | Global Docker image registry                                                                                                                                                                                                                                                                                                                                        | `""`       |
+| `global.imagePullSecrets`                             | Global Docker registry secret names as an array                                                                                                                                                                                                                                                                                                                     | `[]`       |
+| `global.storageClass`                                 | Global StorageClass for Persistent Volume(s)                                                                                                                                                                                                                                                                                                                        | `""`       |
+| `global.compatibility.openshift.adaptSecurityContext` | Adapt the securityContext sections of the deployment to make them compatible with Openshift restricted-v2 SCC: remove runAsUser, runAsGroup and fsGroup and let the platform use their allowed default IDs. Possible values: auto (apply if the detected running cluster is Openshift), force (perform the adaptation always), disabled (do not perform adaptation) | `disabled` |
 
 ### Common parameters
 
@@ -75,93 +148,106 @@ The command removes all the Kubernetes components associated with the chart and 
 
 ### OpenCart parameters
 
-| Name                                    | Description                                                                                              | Value                  |
-| --------------------------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------- |
-| `image.registry`                        | OpenCart image registry                                                                                  | `docker.io`            |
-| `image.repository`                      | OpenCart image repository                                                                                | `bitnami/opencart`     |
-| `image.tag`                             | OpenCart image tag (immutable tags are recommended)                                                      | `4.0.2-1-debian-11-r7` |
-| `image.digest`                          | OpenCart image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag | `""`                   |
-| `image.pullPolicy`                      | OpenCart image pull policy                                                                               | `IfNotPresent`         |
-| `image.pullSecrets`                     | Specify docker-registry secret names as an array                                                         | `[]`                   |
-| `image.debug`                           | Specify if debug logs should be enabled                                                                  | `false`                |
-| `hostAliases`                           | Deployment pod host aliases                                                                              | `[]`                   |
-| `replicaCount`                          | Number of replicas (requires ReadWriteMany PVC support)                                                  | `1`                    |
-| `opencartSkipInstall`                   | Skip OpenCart installation wizard. Useful for migrations and restoring from SQL dump                     | `false`                |
-| `opencartHost`                          | OpenCart host to create application URLs                                                                 | `""`                   |
-| `opencartUsername`                      | User of the application                                                                                  | `user`                 |
-| `opencartPassword`                      | Application password                                                                                     | `""`                   |
-| `opencartEmail`                         | Admin email                                                                                              | `user@example.com`     |
-| `opencartEnableHttps`                   | Whether to use HTTPS by default, default is false.                                                       | `false`                |
-| `allowEmptyPassword`                    | Allow DB blank passwords                                                                                 | `true`                 |
-| `command`                               | Override default container command (useful when using custom images)                                     | `[]`                   |
-| `args`                                  | Override default container args (useful when using custom images)                                        | `[]`                   |
-| `updateStrategy.type`                   | Update strategy - only really applicable for deployments with RWO PVs attached                           | `RollingUpdate`        |
-| `priorityClassName`                     | OpenCart pods' priorityClassName                                                                         | `""`                   |
-| `schedulerName`                         | Name of the k8s scheduler (other than default)                                                           | `""`                   |
-| `topologySpreadConstraints`             | Topology Spread Constraints for pod assignment                                                           | `[]`                   |
-| `extraEnvVars`                          | An array to add extra env vars                                                                           | `[]`                   |
-| `extraEnvVarsCM`                        | ConfigMap with extra environment variables                                                               | `""`                   |
-| `extraEnvVarsSecret`                    | Secret with extra environment variables                                                                  | `""`                   |
-| `extraVolumes`                          | Extra volumes to add to the deployment. Requires setting `extraVolumeMounts`                             | `[]`                   |
-| `extraVolumeMounts`                     | Extra volume mounts to add to the container. Normally used with `extraVolumes`.                          | `[]`                   |
-| `initContainers`                        | Extra init containers to add to the deployment                                                           | `[]`                   |
-| `sidecars`                              | Extra sidecar containers to add to the deployment                                                        | `[]`                   |
-| `tolerations`                           | Tolerations for pod assignment. Evaluated as a template.                                                 | `[]`                   |
-| `existingSecret`                        | Name of a secret with the application password                                                           | `""`                   |
-| `smtpHost`                              | SMTP host                                                                                                | `""`                   |
-| `smtpPort`                              | SMTP port                                                                                                | `""`                   |
-| `smtpUser`                              | SMTP user                                                                                                | `""`                   |
-| `smtpPassword`                          | SMTP password                                                                                            | `""`                   |
-| `smtpProtocol`                          | SMTP Protocol (options: ssl,tls, nil)                                                                    | `""`                   |
-| `containerPorts`                        | Container ports                                                                                          | `{}`                   |
-| `persistence.enabled`                   | Enable persistence using PVC                                                                             | `true`                 |
-| `persistence.storageClass`              | OpenCart Data Persistent Volume Storage Class                                                            | `""`                   |
-| `persistence.accessModes`               | PVC Access Mode for OpenCart volume                                                                      | `["ReadWriteOnce"]`    |
-| `persistence.size`                      | PVC Storage Request for OpenCart volume                                                                  | `8Gi`                  |
-| `persistence.existingClaim`             | An Existing PVC name                                                                                     | `""`                   |
-| `persistence.hostPath`                  | Host mount path for OpenCart volume                                                                      | `""`                   |
-| `persistence.annotations`               | Persistent Volume Claim annotations                                                                      | `{}`                   |
-| `podAffinityPreset`                     | Pod affinity preset. Ignored if `affinity` is set. Allowed values: `soft` or `hard`                      | `""`                   |
-| `podAntiAffinityPreset`                 | Pod anti-affinity preset. Ignored if `affinity` is set. Allowed values: `soft` or `hard`                 | `soft`                 |
-| `nodeAffinityPreset.type`               | Node affinity preset type. Ignored if `affinity` is set. Allowed values: `soft` or `hard`                | `""`                   |
-| `nodeAffinityPreset.key`                | Node label key to match Ignored if `affinity` is set.                                                    | `""`                   |
-| `nodeAffinityPreset.values`             | Node label values to match. Ignored if `affinity` is set.                                                | `[]`                   |
-| `affinity`                              | Affinity for pod assignment                                                                              | `{}`                   |
-| `nodeSelector`                          | Node labels for pod assignment                                                                           | `{}`                   |
-| `resources.requests`                    | The requested resources for the container                                                                | `{}`                   |
-| `resources.limits`                      | The resources limits for the container                                                                   | `{}`                   |
-| `podSecurityContext.enabled`            | Enable OpenCart pods' Security Context                                                                   | `true`                 |
-| `podSecurityContext.fsGroup`            | OpenCart pods' group ID                                                                                  | `1001`                 |
-| `containerSecurityContext.enabled`      | Enable OpenCart containers' Security Context                                                             | `true`                 |
-| `containerSecurityContext.runAsUser`    | OpenCart containers' Security Context runAsUser                                                          | `1001`                 |
-| `containerSecurityContext.runAsNonRoot` | OpenCart containers' Security Context runAsNonRoot                                                       | `true`                 |
-| `startupProbe.enabled`                  | Enable startupProbe                                                                                      | `false`                |
-| `startupProbe.path`                     | Request path for startupProbe                                                                            | `/administration/`     |
-| `startupProbe.initialDelaySeconds`      | Initial delay seconds for startupProbe                                                                   | `120`                  |
-| `startupProbe.periodSeconds`            | Period seconds for startupProbe                                                                          | `10`                   |
-| `startupProbe.timeoutSeconds`           | Timeout seconds for startupProbe                                                                         | `5`                    |
-| `startupProbe.failureThreshold`         | Failure threshold for startupProbe                                                                       | `6`                    |
-| `startupProbe.successThreshold`         | Success threshold for startupProbe                                                                       | `1`                    |
-| `livenessProbe.enabled`                 | Enable livenessProbe                                                                                     | `true`                 |
-| `livenessProbe.path`                    | Request path for livenessProbe                                                                           | `/administration/`     |
-| `livenessProbe.initialDelaySeconds`     | Initial delay seconds for livenessProbe                                                                  | `120`                  |
-| `livenessProbe.periodSeconds`           | Period seconds for livenessProbe                                                                         | `10`                   |
-| `livenessProbe.timeoutSeconds`          | Timeout seconds for livenessProbe                                                                        | `5`                    |
-| `livenessProbe.failureThreshold`        | Failure threshold for livenessProbe                                                                      | `6`                    |
-| `livenessProbe.successThreshold`        | Success threshold for livenessProbe                                                                      | `1`                    |
-| `readinessProbe.enabled`                | Enable readinessProbe                                                                                    | `true`                 |
-| `readinessProbe.path`                   | Request path for readinessProbe                                                                          | `/administration/`     |
-| `readinessProbe.initialDelaySeconds`    | Initial delay seconds for readinessProbe                                                                 | `30`                   |
-| `readinessProbe.periodSeconds`          | Period seconds for readinessProbe                                                                        | `5`                    |
-| `readinessProbe.timeoutSeconds`         | Timeout seconds for readinessProbe                                                                       | `3`                    |
-| `readinessProbe.failureThreshold`       | Failure threshold for readinessProbe                                                                     | `6`                    |
-| `readinessProbe.successThreshold`       | Success threshold for readinessProbe                                                                     | `1`                    |
-| `customStartupProbe`                    | Override default startup probe                                                                           | `{}`                   |
-| `customLivenessProbe`                   | Override default liveness probe                                                                          | `{}`                   |
-| `customReadinessProbe`                  | Override default readiness probe                                                                         | `{}`                   |
-| `lifecycleHooks`                        | lifecycleHooks for the container to automate configuration before or after startup                       | `{}`                   |
-| `podAnnotations`                        | Pod annotations                                                                                          | `{}`                   |
-| `podLabels`                             | Add additional labels to the pod (evaluated as a template)                                               | `{}`                   |
+| Name                                                | Description                                                                                                                                                                                                | Value                      |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| `image.registry`                                    | OpenCart image registry                                                                                                                                                                                    | `REGISTRY_NAME`            |
+| `image.repository`                                  | OpenCart image repository                                                                                                                                                                                  | `REPOSITORY_NAME/opencart` |
+| `image.digest`                                      | OpenCart image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag                                                                                                   | `""`                       |
+| `image.pullPolicy`                                  | OpenCart image pull policy                                                                                                                                                                                 | `IfNotPresent`             |
+| `image.pullSecrets`                                 | Specify docker-registry secret names as an array                                                                                                                                                           | `[]`                       |
+| `image.debug`                                       | Specify if debug logs should be enabled                                                                                                                                                                    | `false`                    |
+| `automountServiceAccountToken`                      | Mount Service Account token in pod                                                                                                                                                                         | `false`                    |
+| `hostAliases`                                       | Deployment pod host aliases                                                                                                                                                                                | `[]`                       |
+| `replicaCount`                                      | Number of replicas (requires ReadWriteMany PVC support)                                                                                                                                                    | `1`                        |
+| `opencartSkipInstall`                               | Skip OpenCart installation wizard. Useful for migrations and restoring from SQL dump                                                                                                                       | `false`                    |
+| `opencartHost`                                      | OpenCart host to create application URLs                                                                                                                                                                   | `""`                       |
+| `opencartUsername`                                  | User of the application                                                                                                                                                                                    | `user`                     |
+| `opencartPassword`                                  | Application password                                                                                                                                                                                       | `""`                       |
+| `opencartEmail`                                     | Admin email                                                                                                                                                                                                | `user@example.com`         |
+| `opencartEnableHttps`                               | Whether to use HTTPS by default, default is false.                                                                                                                                                         | `false`                    |
+| `allowEmptyPassword`                                | Allow DB blank passwords                                                                                                                                                                                   | `true`                     |
+| `command`                                           | Override default container command (useful when using custom images)                                                                                                                                       | `[]`                       |
+| `args`                                              | Override default container args (useful when using custom images)                                                                                                                                          | `[]`                       |
+| `updateStrategy.type`                               | Update strategy - only really applicable for deployments with RWO PVs attached                                                                                                                             | `RollingUpdate`            |
+| `priorityClassName`                                 | OpenCart pods' priorityClassName                                                                                                                                                                           | `""`                       |
+| `schedulerName`                                     | Name of the k8s scheduler (other than default)                                                                                                                                                             | `""`                       |
+| `topologySpreadConstraints`                         | Topology Spread Constraints for pod assignment                                                                                                                                                             | `[]`                       |
+| `extraEnvVars`                                      | An array to add extra env vars                                                                                                                                                                             | `[]`                       |
+| `extraEnvVarsCM`                                    | ConfigMap with extra environment variables                                                                                                                                                                 | `""`                       |
+| `extraEnvVarsSecret`                                | Secret with extra environment variables                                                                                                                                                                    | `""`                       |
+| `extraVolumes`                                      | Extra volumes to add to the deployment. Requires setting `extraVolumeMounts`                                                                                                                               | `[]`                       |
+| `extraVolumeMounts`                                 | Extra volume mounts to add to the container. Normally used with `extraVolumes`.                                                                                                                            | `[]`                       |
+| `initContainers`                                    | Extra init containers to add to the deployment                                                                                                                                                             | `[]`                       |
+| `sidecars`                                          | Extra sidecar containers to add to the deployment                                                                                                                                                          | `[]`                       |
+| `tolerations`                                       | Tolerations for pod assignment. Evaluated as a template.                                                                                                                                                   | `[]`                       |
+| `existingSecret`                                    | Name of a secret with the application password                                                                                                                                                             | `""`                       |
+| `smtpHost`                                          | SMTP host                                                                                                                                                                                                  | `""`                       |
+| `smtpPort`                                          | SMTP port                                                                                                                                                                                                  | `""`                       |
+| `smtpUser`                                          | SMTP user                                                                                                                                                                                                  | `""`                       |
+| `smtpPassword`                                      | SMTP password                                                                                                                                                                                              | `""`                       |
+| `smtpProtocol`                                      | SMTP Protocol (options: ssl,tls, nil)                                                                                                                                                                      | `""`                       |
+| `containerPorts`                                    | Container ports                                                                                                                                                                                            | `{}`                       |
+| `persistence.enabled`                               | Enable persistence using PVC                                                                                                                                                                               | `true`                     |
+| `persistence.storageClass`                          | OpenCart Data Persistent Volume Storage Class                                                                                                                                                              | `""`                       |
+| `persistence.accessModes`                           | PVC Access Mode for OpenCart volume                                                                                                                                                                        | `["ReadWriteOnce"]`        |
+| `persistence.size`                                  | PVC Storage Request for OpenCart volume                                                                                                                                                                    | `8Gi`                      |
+| `persistence.existingClaim`                         | An Existing PVC name                                                                                                                                                                                       | `""`                       |
+| `persistence.hostPath`                              | Host mount path for OpenCart volume                                                                                                                                                                        | `""`                       |
+| `persistence.annotations`                           | Persistent Volume Claim annotations                                                                                                                                                                        | `{}`                       |
+| `podAffinityPreset`                                 | Pod affinity preset. Ignored if `affinity` is set. Allowed values: `soft` or `hard`                                                                                                                        | `""`                       |
+| `podAntiAffinityPreset`                             | Pod anti-affinity preset. Ignored if `affinity` is set. Allowed values: `soft` or `hard`                                                                                                                   | `soft`                     |
+| `nodeAffinityPreset.type`                           | Node affinity preset type. Ignored if `affinity` is set. Allowed values: `soft` or `hard`                                                                                                                  | `""`                       |
+| `nodeAffinityPreset.key`                            | Node label key to match Ignored if `affinity` is set.                                                                                                                                                      | `""`                       |
+| `nodeAffinityPreset.values`                         | Node label values to match. Ignored if `affinity` is set.                                                                                                                                                  | `[]`                       |
+| `affinity`                                          | Affinity for pod assignment                                                                                                                                                                                | `{}`                       |
+| `nodeSelector`                                      | Node labels for pod assignment                                                                                                                                                                             | `{}`                       |
+| `resourcesPreset`                                   | Set container resources according to one common preset (allowed values: none, nano, small, medium, large, xlarge, 2xlarge). This is ignored if resources is set (resources is recommended for production). | `none`                     |
+| `resources`                                         | Set container requests and limits for different resources like CPU or memory (essential for production workloads)                                                                                          | `{}`                       |
+| `podSecurityContext.enabled`                        | Enable OpenCart pods' Security Context                                                                                                                                                                     | `true`                     |
+| `podSecurityContext.fsGroupChangePolicy`            | Set filesystem group change policy                                                                                                                                                                         | `Always`                   |
+| `podSecurityContext.sysctls`                        | Set kernel settings using the sysctl interface                                                                                                                                                             | `[]`                       |
+| `podSecurityContext.supplementalGroups`             | Set filesystem extra groups                                                                                                                                                                                | `[]`                       |
+| `podSecurityContext.fsGroup`                        | OpenCart pods' group ID                                                                                                                                                                                    | `1001`                     |
+| `containerSecurityContext.enabled`                  | Enabled containers' Security Context                                                                                                                                                                       | `true`                     |
+| `containerSecurityContext.seLinuxOptions`           | Set SELinux options in container                                                                                                                                                                           | `nil`                      |
+| `containerSecurityContext.runAsUser`                | Set containers' Security Context runAsUser                                                                                                                                                                 | `1001`                     |
+| `containerSecurityContext.runAsNonRoot`             | Set container's Security Context runAsNonRoot                                                                                                                                                              | `true`                     |
+| `containerSecurityContext.privileged`               | Set container's Security Context privileged                                                                                                                                                                | `false`                    |
+| `containerSecurityContext.readOnlyRootFilesystem`   | Set container's Security Context readOnlyRootFilesystem                                                                                                                                                    | `false`                    |
+| `containerSecurityContext.allowPrivilegeEscalation` | Set container's Security Context allowPrivilegeEscalation                                                                                                                                                  | `false`                    |
+| `containerSecurityContext.capabilities.drop`        | List of capabilities to be dropped                                                                                                                                                                         | `["ALL"]`                  |
+| `containerSecurityContext.seccompProfile.type`      | Set container's Security Context seccomp profile                                                                                                                                                           | `RuntimeDefault`           |
+| `startupProbe.enabled`                              | Enable startupProbe                                                                                                                                                                                        | `false`                    |
+| `startupProbe.path`                                 | Request path for startupProbe                                                                                                                                                                              | `/administration/`         |
+| `startupProbe.initialDelaySeconds`                  | Initial delay seconds for startupProbe                                                                                                                                                                     | `120`                      |
+| `startupProbe.periodSeconds`                        | Period seconds for startupProbe                                                                                                                                                                            | `10`                       |
+| `startupProbe.timeoutSeconds`                       | Timeout seconds for startupProbe                                                                                                                                                                           | `5`                        |
+| `startupProbe.failureThreshold`                     | Failure threshold for startupProbe                                                                                                                                                                         | `6`                        |
+| `startupProbe.successThreshold`                     | Success threshold for startupProbe                                                                                                                                                                         | `1`                        |
+| `livenessProbe.enabled`                             | Enable livenessProbe                                                                                                                                                                                       | `true`                     |
+| `livenessProbe.path`                                | Request path for livenessProbe                                                                                                                                                                             | `/administration/`         |
+| `livenessProbe.initialDelaySeconds`                 | Initial delay seconds for livenessProbe                                                                                                                                                                    | `120`                      |
+| `livenessProbe.periodSeconds`                       | Period seconds for livenessProbe                                                                                                                                                                           | `10`                       |
+| `livenessProbe.timeoutSeconds`                      | Timeout seconds for livenessProbe                                                                                                                                                                          | `5`                        |
+| `livenessProbe.failureThreshold`                    | Failure threshold for livenessProbe                                                                                                                                                                        | `6`                        |
+| `livenessProbe.successThreshold`                    | Success threshold for livenessProbe                                                                                                                                                                        | `1`                        |
+| `readinessProbe.enabled`                            | Enable readinessProbe                                                                                                                                                                                      | `true`                     |
+| `readinessProbe.path`                               | Request path for readinessProbe                                                                                                                                                                            | `/administration/`         |
+| `readinessProbe.initialDelaySeconds`                | Initial delay seconds for readinessProbe                                                                                                                                                                   | `30`                       |
+| `readinessProbe.periodSeconds`                      | Period seconds for readinessProbe                                                                                                                                                                          | `5`                        |
+| `readinessProbe.timeoutSeconds`                     | Timeout seconds for readinessProbe                                                                                                                                                                         | `3`                        |
+| `readinessProbe.failureThreshold`                   | Failure threshold for readinessProbe                                                                                                                                                                       | `6`                        |
+| `readinessProbe.successThreshold`                   | Success threshold for readinessProbe                                                                                                                                                                       | `1`                        |
+| `customStartupProbe`                                | Override default startup probe                                                                                                                                                                             | `{}`                       |
+| `customLivenessProbe`                               | Override default liveness probe                                                                                                                                                                            | `{}`                       |
+| `customReadinessProbe`                              | Override default readiness probe                                                                                                                                                                           | `{}`                       |
+| `lifecycleHooks`                                    | lifecycleHooks for the container to automate configuration before or after startup                                                                                                                         | `{}`                       |
+| `podAnnotations`                                    | Pod annotations                                                                                                                                                                                            | `{}`                       |
+| `podLabels`                                         | Add additional labels to the pod (evaluated as a template)                                                                                                                                                 | `{}`                       |
+| `serviceAccount.create`                             | Enable creation of ServiceAccount for Opencart pod                                                                                                                                                         | `true`                     |
+| `serviceAccount.name`                               | The name of the ServiceAccount to use.                                                                                                                                                                     | `""`                       |
+| `serviceAccount.automountServiceAccountToken`       | Allows auto mount of ServiceAccountToken on the serviceAccount created                                                                                                                                     | `false`                    |
+| `serviceAccount.annotations`                        | Additional custom annotations for the ServiceAccount                                                                                                                                                       | `{}`                       |
 
 ### Traffic Exposure Parameters
 
@@ -219,31 +305,30 @@ The command removes all the Kubernetes components associated with the chart and 
 
 ### Volume Permissions parameters
 
-| Name                                   | Description                                                                                                                                               | Value                   |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| `volumePermissions.enabled`            | Enable init container that changes volume permissions in the data directory (for cases where the default k8s `runAsUser` and `fsUser` values do not work) | `false`                 |
-| `volumePermissions.image.registry`     | Init container volume-permissions image registry                                                                                                          | `docker.io`             |
-| `volumePermissions.image.repository`   | Init container volume-permissions image repository                                                                                                        | `bitnami/bitnami-shell` |
-| `volumePermissions.image.tag`          | Init container volume-permissions image tag (immutable tags are recommended)                                                                              | `11-debian-11-r113`     |
-| `volumePermissions.image.digest`       | Init container volume-permissions image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag                         | `""`                    |
-| `volumePermissions.image.pullPolicy`   | Init container volume-permissions image pull policy                                                                                                       | `IfNotPresent`          |
-| `volumePermissions.image.pullSecrets`  | Specify docker-registry secret names as an array                                                                                                          | `[]`                    |
-| `volumePermissions.resources.limits`   | The resources limits for the container                                                                                                                    | `{}`                    |
-| `volumePermissions.resources.requests` | The requested resources for the container                                                                                                                 | `{}`                    |
+| Name                                  | Description                                                                                                                                                                                                                                    | Value                      |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| `volumePermissions.enabled`           | Enable init container that changes volume permissions in the data directory (for cases where the default k8s `runAsUser` and `fsUser` values do not work)                                                                                      | `false`                    |
+| `volumePermissions.image.registry`    | Init container volume-permissions image registry                                                                                                                                                                                               | `REGISTRY_NAME`            |
+| `volumePermissions.image.repository`  | Init container volume-permissions image repository                                                                                                                                                                                             | `REPOSITORY_NAME/os-shell` |
+| `volumePermissions.image.digest`      | Init container volume-permissions image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag                                                                                                              | `""`                       |
+| `volumePermissions.image.pullPolicy`  | Init container volume-permissions image pull policy                                                                                                                                                                                            | `IfNotPresent`             |
+| `volumePermissions.image.pullSecrets` | Specify docker-registry secret names as an array                                                                                                                                                                                               | `[]`                       |
+| `volumePermissions.resourcesPreset`   | Set container resources according to one common preset (allowed values: none, nano, small, medium, large, xlarge, 2xlarge). This is ignored if volumePermissions.resources is set (volumePermissions.resources is recommended for production). | `none`                     |
+| `volumePermissions.resources`         | Set container requests and limits for different resources like CPU or memory (essential for production workloads)                                                                                                                              | `{}`                       |
 
 ### Metrics parameters
 
-| Name                        | Description                                                                                                     | Value                     |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------- |
-| `metrics.enabled`           | Start a side-car prometheus exporter                                                                            | `false`                   |
-| `metrics.image.registry`    | Apache exporter image registry                                                                                  | `docker.io`               |
-| `metrics.image.repository`  | Apache exporter image repository                                                                                | `bitnami/apache-exporter` |
-| `metrics.image.tag`         | Apache exporter image tag (immutable tags are recommended)                                                      | `0.13.3-debian-11-r4`     |
-| `metrics.image.digest`      | Apache exporter image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag | `""`                      |
-| `metrics.image.pullPolicy`  | Image pull policy                                                                                               | `IfNotPresent`            |
-| `metrics.image.pullSecrets` | Specify docker-registry secret names as an array                                                                | `[]`                      |
-| `metrics.resources`         | Metrics exporter resource requests and limits                                                                   | `{}`                      |
-| `metrics.podAnnotations`    | Metrics exporter pod Annotation and Labels                                                                      | `{}`                      |
+| Name                        | Description                                                                                                                                                                                                                | Value                             |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| `metrics.enabled`           | Start a side-car prometheus exporter                                                                                                                                                                                       | `false`                           |
+| `metrics.image.registry`    | Apache exporter image registry                                                                                                                                                                                             | `REGISTRY_NAME`                   |
+| `metrics.image.repository`  | Apache exporter image repository                                                                                                                                                                                           | `REPOSITORY_NAME/apache-exporter` |
+| `metrics.image.digest`      | Apache exporter image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag                                                                                                            | `""`                              |
+| `metrics.image.pullPolicy`  | Image pull policy                                                                                                                                                                                                          | `IfNotPresent`                    |
+| `metrics.image.pullSecrets` | Specify docker-registry secret names as an array                                                                                                                                                                           | `[]`                              |
+| `metrics.resourcesPreset`   | Set container resources according to one common preset (allowed values: none, nano, small, medium, large, xlarge, 2xlarge). This is ignored if metrics.resources is set (metrics.resources is recommended for production). | `none`                            |
+| `metrics.resources`         | Set container requests and limits for different resources like CPU or memory (essential for production workloads)                                                                                                          | `{}`                              |
+| `metrics.podAnnotations`    | Metrics exporter pod Annotation and Labels                                                                                                                                                                                 | `{}`                              |
 
 ### Certificate injection parameters
 
@@ -261,9 +346,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | `certificates.extraEnvVars`                          | Container sidecar extra environment variables                                                                     | `[]`                                     |
 | `certificates.extraEnvVarsCM`                        | ConfigMap with extra environment variables                                                                        | `""`                                     |
 | `certificates.extraEnvVarsSecret`                    | Secret with extra environment variables                                                                           | `""`                                     |
-| `certificates.image.registry`                        | Container sidecar registry                                                                                        | `docker.io`                              |
-| `certificates.image.repository`                      | Container sidecar image repository                                                                                | `bitnami/bitnami-shell`                  |
-| `certificates.image.tag`                             | Container sidecar image tag (immutable tags are recommended)                                                      | `11-debian-11-r113`                      |
+| `certificates.image.registry`                        | Container sidecar registry                                                                                        | `REGISTRY_NAME`                          |
+| `certificates.image.repository`                      | Container sidecar image repository                                                                                | `REPOSITORY_NAME/os-shell`               |
 | `certificates.image.digest`                          | Container sidecar image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag | `""`                                     |
 | `certificates.image.pullPolicy`                      | Container sidecar image pull policy                                                                               | `IfNotPresent`                           |
 | `certificates.image.pullSecrets`                     | Container sidecar image pull secrets                                                                              | `[]`                                     |
@@ -309,8 +393,10 @@ Specify each parameter using the `--set key=value[,key=value]` argument to `helm
 ```console
 helm install my-release \
   --set opencartUsername=admin,opencartPassword=password,mariadb.auth.rootPassword=secretpassword \
-    oci://registry-1.docker.io/bitnamicharts/opencart
+    oci://REGISTRY_NAME/REPOSITORY_NAME/opencart
 ```
+
+> Note: You need to substitute the placeholders `REGISTRY_NAME` and `REPOSITORY_NAME` with a reference to your Helm chart registry and repository. For example, in the case of Bitnami, you need to use `REGISTRY_NAME=registry-1.docker.io` and `REPOSITORY_NAME=bitnamicharts`.
 
 The above command sets the OpenCart administrator account username and password to `admin` and `password` respectively. Additionally, it sets the MariaDB `root` user password to `secretpassword`.
 
@@ -319,84 +405,29 @@ The above command sets the OpenCart administrator account username and password 
 Alternatively, a YAML file that specifies the values for the above parameters can be provided while installing the chart. For example,
 
 ```console
-helm install my-release -f values.yaml oci://registry-1.docker.io/bitnamicharts/opencart
+helm install my-release -f values.yaml oci://REGISTRY_NAME/REPOSITORY_NAME/opencart
 ```
 
-> **Tip**: You can use the default [values.yaml](values.yaml)
-
-## Configuration and installation details
-
-### [Rolling VS Immutable tags](https://docs.bitnami.com/containers/how-to/understand-rolling-tags-containers/)
-
-It is strongly recommended to use immutable tags in a production environment. This ensures your deployment does not change automatically if the same tag is updated with a different image.
-
-Bitnami will release a new chart updating its containers if a new version of the main container, significant changes, or critical vulnerabilities exist.
-
-### Image
-
-The `image` parameter allows specifying which image will be pulled for the chart.
-
-#### Private registry
-
-If you configure the `image` value to one in a private registry, you will need to [specify an image pull secret](https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod).
-
-1. Manually create image pull secret(s) in the namespace. See [this YAML example reference](https://kubernetes.io/docs/concepts/containers/images/#creating-a-secret-with-a-docker-config). Consult your image registry's documentation about getting the appropriate secret.
-2. Note that the `imagePullSecrets` configuration value cannot currently be passed to helm using the `--set` parameter, so you must supply these using a `values.yaml` file, such as:
-
-    ```yaml
-    imagePullSecrets:
-      - name: SECRET_NAME
-    ```
-
-3. Install the chart
-
-### Setting Pod's affinity
-
-This chart allows you to set your custom affinity using the `affinity` parameter. Find more information about Pod's affinity in the [kubernetes documentation](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity).
-
-As an alternative, you can use of the preset configurations for pod affinity, pod anti-affinity, and node affinity available at the [bitnami/common](https://github.com/bitnami/charts/tree/main/bitnami/common#affinities) chart. To do so, set the `podAffinityPreset`, `podAntiAffinityPreset`, or `nodeAffinityPreset` parameters.
-
-## Persistence
-
-The [Bitnami OpenCart](https://github.com/bitnami/containers/tree/main/bitnami/opencart) image stores the OpenCart data and configurations at the `/bitnami/opencart` path of the container.
-
-Persistent Volume Claims are used to keep the data across deployments. This is known to work in GCE, AWS, and minikube.
-See the [Parameters](#parameters) section to configure the PVC or to disable persistence.
-
-### Existing PersistentVolumeClaim
-
-1. Create the PersistentVolume
-2. Create the PersistentVolumeClaim
-3. Install the chart
-
-```console
-helm install my-release --set persistence.existingClaim=PVC_NAME oci://registry-1.docker.io/bitnamicharts/prestashop
-```
-
-### Host path
-
-#### System compatibility
-
-- The local filesystem accessibility to a container in a pod with `hostPath` has been tested on OSX/MacOS with xhyve, and Linux with VirtualBox.
-- Windows has not been tested with the supported VM drivers. Minikube does however officially support [Mounting Host Folders](https://minikube.sigs.k8s.io/docs/handbook/mount/) per pod. Or you may manually sync your container whenever host files are changed with tools like [docker-sync](https://github.com/EugenMayer/docker-sync) or [docker-bg-sync](https://github.com/cweagans/docker-bg-sync).
-
-#### Mounting steps
-
-1. The specified `hostPath` directory must already exist (create one if it does not).
-2. Install the chart
-
-    ```console
-    helm install my-release --set persistence.hostPath=/PATH/TO/HOST/MOUNT oci://registry-1.docker.io/bitnamicharts/prestashop
-    ```
-
-    This will mount the `prestashop-data` volume into the `hostPath` directory. The site data will be persisted if the mount path contains valid data, else the site data will be initialized at first launch.
-3. Because the container cannot control the host machine's directory permissions, you must set the PrestaShop file directory permissions yourself and disable or clear PrestaShop cache.
+> Note: You need to substitute the placeholders `REGISTRY_NAME` and `REPOSITORY_NAME` with a reference to your Helm chart registry and repository. For example, in the case of Bitnami, you need to use `REGISTRY_NAME=registry-1.docker.io` and `REPOSITORY_NAME=bitnamicharts`.
+> **Tip**: You can use the default [values.yaml](https://github.com/bitnami/charts/tree/main/bitnami/opencart/values.yaml)
 
 ## Troubleshooting
 
 Find more information about how to deal with common errors related to Bitnami's Helm charts in [this troubleshooting guide](https://docs.bitnami.com/general/how-to/troubleshoot-helm-chart-issues).
 
 ## Upgrading
+
+### To 17.0.0
+
+This major release bumps the MariaDB version to 11.2. No major issues are expected during the upgrade.
+
+### To 16.0.0
+
+This major release bumps the MariaDB version to 11.1. No major issues are expected during the upgrade.
+
+### To 15.0.0
+
+This major release bumps the MariaDB version to 11.0. Follow the [upstream instructions](https://mariadb.com/kb/en/upgrading-from-mariadb-10-11-to-mariadb-11-0/) for upgrading from MariaDB 10.11 to 11.0. No major issues are expected during the upgrade.
 
 ### To 14.0.0
 
@@ -452,7 +483,7 @@ This version standardizes the way of defining Ingress rules. When configuring a 
 
 **Important:** Under no circumstance should you run `helm upgrade` to `8.0.0` or you may suffer unrecoverable data loss of your site's data.
 
-This release includes several breaking changes which are listed below. To upgrade to `8.0.0`, we recommend to install a new OpenCart chart, and migrate your OpenCart site using the application's [Backup & Restore tool](http://docs.opencart.com/en-gb/tools/backup/).
+This release includes several breaking changes which are listed below. To upgrade to `8.0.0`, we recommend to install a new OpenCart chart, and migrate your OpenCart site using the application's [Backup & Restore tool](https://docs.opencart.com/en-gb/tools/backup/).
 
 > NOTE: It is highly recommended to create a backup of your database before migrating your site. The steps below would be only valid if your application (e.g. any plugins or custom code) is compatible with MariaDB 10.5.x
 Obtain the credentials and the name of the PVC used to hold the MariaDB data on your current release:
@@ -503,17 +534,9 @@ kubectl patch deployment opencart-opencart --type=json -p='[{"op": "remove", "pa
 kubectl delete statefulset opencart-mariadb --cascade=false
 ```
 
-## Community supported solution
-
-Please, note this Helm chart is a community-supported solution. This means that the Bitnami team is not actively working on new features/improvements nor providing support through GitHub Issues for this Helm chart. Any new issue will stay open for 20 days to allow the community to contribute, after 15 days without activity the issue will be marked as stale being closed after 5 days.
-
-The Bitnami team will review any PR that is created, feel free to create a PR if you find any issue or want to implement a new feature.
-
-New versions are not going to be affected. Once a new version is released in the upstream project, the Bitnami container image will be updated to use the latest version.
-
 ## License
 
-Copyright &copy; 2023 Bitnami
+Copyright &copy; 2024 Broadcom. The term "Broadcom" refers to Broadcom Inc. and/or its subsidiaries.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

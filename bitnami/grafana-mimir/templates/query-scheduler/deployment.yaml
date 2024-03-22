@@ -1,15 +1,17 @@
+{{- /*
+Copyright VMware, Inc.
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
 {{- if .Values.queryScheduler.enabled }}
 apiVersion: {{ include "common.capabilities.deployment.apiVersion" . }}
 kind: Deployment
 metadata:
   name: {{ template "grafana-mimir.query-scheduler.fullname" . }}
   namespace: {{ include "common.names.namespace" . | quote }}
-  labels: {{- include "common.labels.standard" . | nindent 4 }}
+  labels: {{- include "common.labels.standard" ( dict "customLabels" .Values.commonLabels "context" $ ) | nindent 4 }}
     app.kubernetes.io/part-of: grafana-mimir
     app.kubernetes.io/component: query-scheduler
-    {{- if .Values.commonLabels }}
-    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
-    {{- end }}
   {{- if .Values.commonAnnotations }}
   annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
   {{- end }}
@@ -18,8 +20,9 @@ spec:
   {{- if .Values.queryScheduler.updateStrategy }}
   strategy: {{- toYaml .Values.queryScheduler.updateStrategy | nindent 4 }}
   {{- end }}
+  {{- $podLabels := include "common.tplvalues.merge" ( dict "values" ( list .Values.queryScheduler.podLabels .Values.commonLabels ) "context" . ) }}
   selector:
-    matchLabels: {{- include "common.labels.matchLabels" . | nindent 6 }}
+    matchLabels: {{- include "common.labels.matchLabels" ( dict "customLabels" $podLabels "context" $ ) | nindent 6 }}
       app.kubernetes.io/part-of: grafana-mimir
       app.kubernetes.io/component: query-scheduler
   template:
@@ -27,15 +30,13 @@ spec:
       {{- if .Values.queryScheduler.podAnnotations }}
       annotations: {{- include "common.tplvalues.render" (dict "value" .Values.queryScheduler.podAnnotations "context" $) | nindent 8 }}
       {{- end }}
-      labels: {{- include "common.labels.standard" . | nindent 8 }}
+      labels: {{- include "common.labels.standard" ( dict "customLabels" $podLabels "context" $ ) | nindent 8 }}
         app.kubernetes.io/part-of: grafana-mimir
         app.kubernetes.io/component: query-scheduler
-        {{- if .Values.queryScheduler.podLabels }}
-        {{- include "common.tplvalues.render" (dict "value" .Values.queryScheduler.podLabels "context" $) | nindent 8 }}
-        {{- end }}
     spec:
       serviceAccountName: {{ template "grafana-mimir.serviceAccountName" . }}
       {{- include "grafana-mimir.imagePullSecrets" . | nindent 6 }}
+      automountServiceAccountToken: {{ .Values.queryScheduler.automountServiceAccountToken }}
       {{- if .Values.queryScheduler.hostAliases }}
       hostAliases: {{- include "common.tplvalues.render" (dict "value" .Values.queryScheduler.hostAliases "context" $) | nindent 8 }}
       {{- end }}
@@ -43,8 +44,8 @@ spec:
       affinity: {{- include "common.tplvalues.render" ( dict "value" .Values.queryScheduler.affinity "context" $) | nindent 8 }}
       {{- else }}
       affinity:
-        podAffinity: {{- include "common.affinities.pods" (dict "type" .Values.queryScheduler.podAffinityPreset "component" "queryScheduler" "context" $) | nindent 10 }}
-        podAntiAffinity: {{- include "common.affinities.pods" (dict "type" .Values.queryScheduler.podAntiAffinityPreset "component" "queryScheduler" "context" $) | nindent 10 }}
+        podAffinity: {{- include "common.affinities.pods" (dict "type" .Values.queryScheduler.podAffinityPreset "component" "queryScheduler" "customLabels" $podLabels "context" $) | nindent 10 }}
+        podAntiAffinity: {{- include "common.affinities.pods" (dict "type" .Values.queryScheduler.podAntiAffinityPreset "component" "queryScheduler" "customLabels" $podLabels "context" $) | nindent 10 }}
         nodeAffinity: {{- include "common.affinities.nodes" (dict "type" .Values.queryScheduler.nodeAffinityPreset.type "key" .Values.queryScheduler.nodeAffinityPreset.key "values" .Values.queryScheduler.nodeAffinityPreset.values) | nindent 10 }}
       {{- end }}
       {{- if .Values.queryScheduler.nodeSelector }}
@@ -63,7 +64,7 @@ spec:
       topologySpreadConstraints: {{- include "common.tplvalues.render" (dict "value" .Values.queryScheduler.topologySpreadConstraints "context" .) | nindent 8 }}
       {{- end }}
       {{- if .Values.queryScheduler.podSecurityContext.enabled }}
-      securityContext: {{- omit .Values.queryScheduler.podSecurityContext "enabled" | toYaml | nindent 8 }}
+      securityContext: {{- include "common.compatibility.renderSecurityContext" (dict "secContext" .Values.queryScheduler.podSecurityContext "context" $) | nindent 8 }}
       {{- end }}
       {{- if .Values.queryScheduler.terminationGracePeriodSeconds }}
       terminationGracePeriodSeconds: {{ .Values.queryScheduler.terminationGracePeriodSeconds }}
@@ -77,7 +78,7 @@ spec:
           image: {{ template "grafana-mimir.image" . }}
           imagePullPolicy: {{ .Values.mimir.image.pullPolicy }}
           {{- if .Values.queryScheduler.containerSecurityContext.enabled }}
-          securityContext: {{- omit .Values.queryScheduler.containerSecurityContext "enabled" | toYaml | nindent 12 }}
+          securityContext: {{- include "common.compatibility.renderSecurityContext" (dict "secContext" .Values.queryScheduler.containerSecurityContext "context" $) | nindent 12 }}
           {{- end }}
           {{- if .Values.diagnosticMode.enabled }}
           command: {{- include "common.tplvalues.render" (dict "value" .Values.diagnosticMode.command "context" $) | nindent 12 }}
@@ -111,6 +112,8 @@ spec:
             {{- end }}
           {{- if .Values.queryScheduler.resources }}
           resources: {{- toYaml .Values.queryScheduler.resources | nindent 12 }}
+          {{- else if ne .Values.queryScheduler.resourcesPreset "none" }}
+          resources: {{- include "common.resources.preset" (dict "type" .Values.queryScheduler.resourcesPreset) | nindent 12 }}
           {{- end }}
           ports:
             - containerPort: {{ .Values.mimir.containerPorts.http }}
@@ -146,6 +149,9 @@ spec:
           lifecycle: {{- include "common.tplvalues.render" (dict "value" .Values.queryScheduler.lifecycleHooks "context" $) | nindent 12 }}
           {{- end }}
           volumeMounts:
+            - name: empty-dir
+              mountPath: /tmp
+              subPath: tmp-dir
             - name: mimir-config
               mountPath: {{ .Values.mimir.dataDir }}/conf
             - name: data
@@ -157,6 +163,8 @@ spec:
         {{- include "common.tplvalues.render" ( dict "value" .Values.queryScheduler.sidecars "context" $) | nindent 8 }}
         {{- end }}
       volumes:
+        - name: empty-dir
+          emptyDir: {}
         - name: data
           emptyDir: {}
         - name: mimir-config

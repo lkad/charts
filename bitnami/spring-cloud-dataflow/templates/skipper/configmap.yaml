@@ -1,21 +1,25 @@
+{{- /*
+Copyright VMware, Inc.
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
 {{- if (include "scdf.skipper.createConfigmap" .) }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "scdf.fullname" . }}-skipper
-  labels: {{- include "common.labels.standard" . | nindent 4 }}
+  name: {{ include "scdf.skipper.fullname" . }}
+  {{- $versionLabel := dict "app.kubernetes.io/version" ( include "common.images.version" ( dict "imageRoot" .Values.skipper.image "chart" .Chart ) ) }}
+  {{- $labels := include "common.tplvalues.merge" ( dict "values" ( list .Values.commonLabels $versionLabel ) "context" . ) }}
+  labels: {{- include "common.labels.standard" ( dict "customLabels" $labels "context" $ ) | nindent 4 }}
     app.kubernetes.io/component: skipper
-    {{- if .Values.commonLabels }}
-    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
-    {{- end }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "common.names.namespace" . | quote }}
   {{- if .Values.commonAnnotations }}
   annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
   {{- end }}
 data:
   application.yaml: |-
     {{- if .Values.metrics.enabled }}
-    {{- $fullname := include "scdf.fullname" . }}
+    {{- $fullname := include "common.names.fullname" . }}
     {{- $rsocketPort := int (coalesce .Values.metrics.service.ports.rsocket .Values.metrics.service.rsocketPort) }}
     management:
       metrics:
@@ -35,7 +39,6 @@ data:
               kubernetes:
                 accounts:
                   {{ .Values.skipper.configuration.accountName }}:
-                    {{- $environmentVariables := include "scdf.deployer.environmentVariables" . }}
                     {{- if or (.Values.rabbitmq.enabled) (.Values.externalRabbitmq.enabled) }}
                     {{- $rabbitmqHost := include "scdf.rabbitmq.host" . }}
                     {{- $rabbitmqPort := include "scdf.rabbitmq.port" . }}
@@ -45,8 +48,14 @@ data:
                       - SPRING_RABBITMQ_HOST={{ $rabbitmqHost }}
                       - SPRING_RABBITMQ_PORT={{ $rabbitmqPort }}
                       - SPRING_RABBITMQ_USERNAME={{ $rabbitmqUser }}
-                      - SPRING_RABBITMQ_PASSWORD=${rabbitmq-password}
                       - SPRING_RABBITMQ_VIRTUAL_HOST={{ $rabbitmqVhost }}
+                      {{- $secretName := coalesce .Values.externalRabbitmq.existingSecret .Values.externalRabbitmq.existingPasswordSecret -}}
+                      {{- if and (not .Values.rabbitmq.enabled) .Values.externalRabbitmq.enabled $secretName .Values.externalRabbitmq.existingSecretPasswordKey }}
+                      - SPRING_RABBITMQ_PASSWORD={{ printf "${%s}" .Values.externalRabbitmq.existingSecretPasswordKey }}
+                      {{- else }}
+                      - SPRING_RABBITMQ_PASSWORD=${rabbitmq-password}
+                      {{- end }}
+                      {{- $environmentVariables := include "scdf.deployer.environmentVariables" . }}
                       {{- if $environmentVariables }}
                       {{- $environmentVariables | nindent 22 }}
                       {{- end }}
@@ -118,10 +127,14 @@ data:
         url: '{{ include "scdf.database.skipper.url" . }}'
         driverClassName: {{ include "scdf.database.driver" . }}
         username: {{ include "scdf.database.skipper.user" . }}
-        {{ if .Values.externalDatabase.existingPasswordSecret }}
-        password: {{ .Values.externalDatabase.existingPasswordKey | default "datasource-password" | printf "${%s}" }}
-        {{- else -}}
+        {{- $secretName := coalesce .Values.externalDatabase.skipper.existingSecret .Values.externalDatabase.existingPasswordSecret -}}
+        {{- $secretPasswordKey := coalesce .Values.externalDatabase.skipper.existingSecretPasswordKey .Values.externalDatabase.existingPasswordKey -}}
+        {{- if .Values.mariadb.enabled }}
         password: ${mariadb-password}
+        {{- else if and $secretName $secretPasswordKey }}
+        password: {{ printf "${%s}" $secretPasswordKey }}
+        {{- else }}
+        password: ${datasource-password}
         {{- end }}
         testOnBorrow: true
         validationQuery: "SELECT 1"

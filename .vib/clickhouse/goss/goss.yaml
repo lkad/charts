@@ -1,12 +1,15 @@
+# Copyright VMware, Inc.
+# SPDX-License-Identifier: APACHE-2.0
+
 file:
   /opt/bitnami/clickhouse/etc/conf.d/00_default_overrides.xml:
     mode: "0644"
     filetype: file
     exists: true
-    contains:
-      - zookeeper
-      - remote_servers
-      - logger
+    contents:
+      - "zookeeper"
+      - "remote_servers"
+      - "logger"
   /bitnami/clickhouse/data:
     mode: "2750"
     filetype: directory
@@ -29,7 +32,7 @@ command:
     exit-status: 0
     {{- $expectedCount := mul .Vars.shards .Vars.replicaCount }}
     stdout:
-      - {{ $expectedCount }}
+      - "{{ $expectedCount }}"
   create-database-in-cluster:
     {{- $database := printf "test_goss_%s" (randAlpha 5) }}
     {{- $table := printf "%s.table_%s" $database (randAlpha 5) }}
@@ -37,8 +40,8 @@ command:
     exec: clickhouse-client --host clickhouse --port {{ .Vars.service.ports.tcp }} --user '{{ .Vars.auth.username }}' --password '{{ .Vars.auth.password }}' --multiquery --query='CREATE DATABASE {{ $database }} ON CLUSTER default ENGINE = Memory; CREATE TABLE {{ $table }} (a UInt8) ENGINE = Memory;  INSERT INTO {{ $table }} VALUES({{ $insertValue }}); SELECT * FROM {{ $table }};'
     exit-status: 0
     stdout:
-      - {{ $insertValue }}
-  {{ if .Vars.serviceAccount.automountServiceAccountToken }}
+      - "{{ $insertValue }}"
+  {{ if .Vars.automountServiceAccountToken }}
   check-sa:
     exec: cat /var/run/secrets/kubernetes.io/serviceaccount/token | cut -d '.' -f 2 | xargs -I '{}' echo '{}====' | fold -w 4 | sed '$ d' | tr -d '\n' | base64 -d
     exit-status: 0

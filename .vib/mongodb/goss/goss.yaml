@@ -1,3 +1,6 @@
+# Copyright VMware, Inc.
+# SPDX-License-Identifier: APACHE-2.0
+
 file:
   {{ .Vars.persistence.mountPath }}:
     exists: true
@@ -7,8 +10,8 @@ file:
   /opt/bitnami/mongodb/conf/mongodb.conf:
     exists: true
     filetype: file
-    mode: "0660"
-    contains:
+    mode: "0644"
+    contents:
       - /port:.*{{ .Vars.containerPorts.mongodb }}/
 command:
   {{- $conn_opts := printf "--quiet --username %s --password '%s' --host mongodb --port %d" .Vars.auth.rootUser .Vars.auth.rootPassword .Vars.service.ports.mongodb }}
@@ -21,7 +24,7 @@ command:
     exec: mongosh {{ $conn_opts }} --eval "db.{{ $testCollection }}.drop(); db.createCollection('{{ $testCollection }}'); db.getCollectionNames()" {{ (index .Vars.auth.databases 0) }}
     exit-status: 0
     stdout:
-      - {{ $testCollection }}
+      - "{{ $testCollection }}"
   {{- $uid := .Vars.containerSecurityContext.runAsUser }}
   {{- $gid := .Vars.podSecurityContext.fsGroup }}
   check-user-info:
@@ -29,7 +32,7 @@ command:
     # or the one randomly defined by openshift (larger values). Otherwise, the chart is still using the default value.
     exec: if [ $(id -u) -lt {{ $uid }} ] || [ $(id -G | awk '{print $2}') -lt {{ $gid }} ]; then exit 1; fi
     exit-status: 0
-  {{ if .Vars.serviceAccount.automountServiceAccountToken }}
+  {{ if .Vars.automountServiceAccountToken }}
   check-sa:
     exec: cat /var/run/secrets/kubernetes.io/serviceaccount/token | cut -d '.' -f 2 | xargs -I '{}' echo '{}====' | fold -w 4 | sed '$ d' | tr -d '\n' | base64 -d
     exit-status: 0

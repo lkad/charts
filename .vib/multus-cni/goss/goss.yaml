@@ -1,3 +1,6 @@
+# Copyright VMware, Inc.
+# SPDX-License-Identifier: APACHE-2.0
+
 # This application performs modifications at host-level, injecting new configuration files. Therefore the
 # container has root user and is privileged. In order to properly test multus-cni, we would need to access the host and
 # change the default host networking configuration, which is something we cannot do. Therefore the test suite is simpler
@@ -22,11 +25,11 @@ file:
     exists: true
     filetype: file
     mode: '0600'
-    contains:
+    contents:
      - /multus.kubeconfig/
   {{ .Vars.CNIMountPath }}/etc/cni/net.d/multus.d/multus.kubeconfig:
     exists: true
     filetype: file
     mode: '0600'
-    contains:
+    contents:
      - /multus-context/

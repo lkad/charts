@@ -13,11 +13,6 @@ APP VERSION: {{ .Chart.AppVersion }}
   {{- if .Values.ingress.hostname }}
       - http://{{ .Values.ingress.hostname }}
   {{- end }}
-  {{- range $host := .Values.ingress.hosts }}
-    {{- range .paths }}
-      - http://{{ $host.name }}{{ . }}
-    {{- end }}
-  {{- end }}
 
 {{- else if contains "NodePort" .Values.service.type }}
 
@@ -44,7 +39,8 @@ WARNING: You did not provide a custom web application. Apache will be deployed w
 {{- end }}
 {{- if and (contains "bitnami/" .Values.image.repository) (not (.Values.image.tag | toString | regexFind "-r\\d+$|sha256:")) }}
 WARNING: Rolling tag detected ({{ .Values.image.repository }}:{{ .Values.image.tag }}), please note that it is strongly recommended to avoid using rolling tags in a production environment.
-+info https://docs.bitnami.com/containers/how-to/understand-rolling-tags-containers/
++info https://docs.bitnami.com/tutorials/understand-rolling-tags-containers
 {{- end }}
 
 {{ include "apache.validateValues" . }}
+{{- include "common.warnings.resources" (dict "sections" (list "cloneHtdocsFromGit" "metrics" "") "context" $) }}

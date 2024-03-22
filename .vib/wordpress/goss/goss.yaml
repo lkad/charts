@@ -1,3 +1,6 @@
+# Copyright VMware, Inc.
+# SPDX-License-Identifier: APACHE-2.0
+
 file:
   /bitnami/wordpress:
     exists: true
@@ -7,7 +10,7 @@ file:
   /etc/hosts:
     exists: true
     filetype: file
-    contains:
+    contents:
     {{ range .Vars.hostAliases }}
     {{ $ip := .ip }}
     {{ range $host := .hostnames }}
@@ -19,7 +22,7 @@ command:
     exec: wp option list --search="admin_email"
     exit-status: 0
     stdout:
-      - {{ .Vars.wordpressEmail }}
+      - "{{ .Vars.wordpressEmail }}"
   {{- $uid := .Vars.containerSecurityContext.runAsUser }}
   {{- $gid := .Vars.podSecurityContext.fsGroup }}
   check-user-info:

@@ -1,3 +1,6 @@
+# Copyright VMware, Inc.
+# SPDX-License-Identifier: APACHE-2.0
+
 http:
   https://nginx-ingress-controller:{{ .Vars.service.ports.https }}:
     status: 404
@@ -14,8 +17,8 @@ command:
     exec: capsh --print
     exit-status: 0
     stdout:
-      - Bounding set =cap_{{ index .Vars.containerSecurityContext.capabilities.add 0 | toLower }}
-  {{ if .Vars.serviceAccount.automountServiceAccountToken }}
+      - "Bounding set =cap_{{ index .Vars.containerSecurityContext.capabilities.add 0 | toLower }}"
+  {{ if .Vars.automountServiceAccountToken }}
   check-sa:
     exec: cat /var/run/secrets/kubernetes.io/serviceaccount/token | cut -d '.' -f 2 | xargs -I '{}' echo '{}====' | fold -w 4 | sed '$ d' | tr -d '\n' | base64 -d
     exit-status: 0

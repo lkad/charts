@@ -1,6 +1,6 @@
 <!--- app-name: SonarQube&trade; -->
 
-# SonarQube(TM) packaged by Bitnami
+# Bitnami package for SonarQube(TM)
 
 SonarQube(TM) is an open source quality management platform that analyzes and measures code's technical quality. It enables developers to detect code issues, vulnerabilities, and bugs in early stages.
 
@@ -14,6 +14,8 @@ Trademarks: This software listing is packaged by Bitnami. The respective tradema
 helm install my-release oci://registry-1.docker.io/bitnamicharts/sonarqube
 ```
 
+Looking to use SonarQube&trade; in production? Try [VMware Tanzu Application Catalog](https://bitnami.com/enterprise), the enterprise edition of Bitnami Application Catalog.
+
 ## Introduction
 
 This chart bootstraps an [SonarQube&trade;](https://github.com/bitnami/containers/tree/main/bitnami/sonarqube) cluster on a [Kubernetes](https://kubernetes.io) cluster using the [Helm](https://helm.sh) package manager.
@@ -22,40 +24,217 @@ Bitnami charts can be used with [Kubeapps](https://kubeapps.dev/) for deployment
 
 ## Prerequisites
 
-- Kubernetes 1.19+
-- Helm 3.2.0+
+- Kubernetes 1.23+
+- Helm 3.8.0+
 
 ## Installing the Chart
 
 To install the chart with the release name `my-release`:
 
 ```console
-helm install my-release oci://registry-1.docker.io/bitnamicharts/sonarqube
+helm install my-release oci://REGISTRY_NAME/REPOSITORY_NAME/sonarqube
 ```
+
+> Note: You need to substitute the placeholders `REGISTRY_NAME` and `REPOSITORY_NAME` with a reference to your Helm chart registry and repository. For example, in the case of Bitnami, you need to use `REGISTRY_NAME=registry-1.docker.io` and `REPOSITORY_NAME=bitnamicharts`.
 
 The command deploys SonarQube&trade; on the Kubernetes cluster in the default configuration. The [Parameters](#parameters) section lists the parameters that can be configured during installation.
 
 > **Tip**: List all releases using `helm list`
 
-## Uninstalling the Chart
+## Configuration and installation details
 
-To uninstall/delete the `my-release` deployment:
+### Resource requests and limits
 
-```console
-helm delete my-release
+Bitnami charts allow setting resource requests and limits for all containers inside the chart deployment. These are inside the `resources` value (check parameter table). Setting requests is essential for production workloads and these should be adapted to your specific use case.
+
+To make this process easier, the chart contains the `resourcesPreset` values, which automatically sets the `resources` section according to different presets. Check these presets in [the bitnami/common chart](https://github.com/bitnami/charts/blob/main/bitnami/common/templates/_resources.tpl#L15). However, in production workloads using `resourcePreset` is discouraged as it may not fully adapt to your specific needs. Find more information on container resource management in the [official Kubernetes documentation](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/).
+
+### [Rolling VS Immutable tags](https://docs.bitnami.com/tutorials/understand-rolling-tags-containers)
+
+It is strongly recommended to use immutable tags in a production environment. This ensures your deployment does not change automatically if the same tag is updated with a different image.
+
+Bitnami will release a new chart updating its containers if a new version of the main container, significant changes, or critical vulnerabilities exist.
+
+### Default kernel settings
+
+Currently, SonarQube&trade; requires some changes in the kernel of the host machine to work as expected. If those values are not set in the underlying operating system, the SonarQube&trade; containers fail to boot with ERROR messages. More information about these requirements can be found in the links below:
+
+- [File Descriptor requirements](https://www.elastic.co/guide/en/elasticsearch/reference/current/file-descriptors.html)
+- [Virtual memory requirements](https://www.elastic.co/guide/en/elasticsearch/reference/current/vm-max-map-count.html)
+
+This chart uses a **privileged** initContainer to change those settings in the Kernel by running: `sysctl -w vm.max_map_count=262144 && sysctl -w fs.file-max=65536`. You can disable the initContainer using the `sysctl.enabled=false` parameter.
+
+### External database support
+
+You may want to have SonarQube&trade; connect to an external database rather than installing one inside your cluster. Typical reasons for this are to use a managed database service, or to share a common database server for all your applications. To achieve this, set the `postgresql.enabled` parameter to `false` and specify the credentials for the external database using the `externalDatabase.*` parameters. Here is an example:
+
+```text
+postgresql.enabled=false
+externalDatabase.host=myexternalhost
+externalDatabase.user=myuser
+externalDatabase.password=mypassword
+externalDatabase.database=mydatabase
+externalDatabase.port=5432
 ```
 
-The command removes all the Kubernetes components associated with the chart and deletes the release.
+### Ingress
+
+This chart provides support for Ingress resources. If you have an ingress controller installed on your cluster, such as [nginx-ingress-controller](https://github.com/bitnami/charts/tree/main/bitnami/nginx-ingress-controller) or [contour](https://github.com/bitnami/charts/tree/main/bitnami/contour) you can utilize the ingress controller to serve your application.To enable Ingress integration, set `ingress.enabled` to `true`.
+
+The most common scenario is to have one host name mapped to the deployment. In this case, the `ingress.hostname` property can be used to set the host name. The `ingress.tls` parameter can be used to add the TLS configuration for this host.
+
+However, it is also possible to have more than one host. To facilitate this, the `ingress.extraHosts` parameter (if available) can be set with the host names specified as an array. The `ingress.extraTLS` parameter (if available) can also be used to add the TLS configuration for extra hosts.
+
+> NOTE: For each host specified in the `ingress.extraHosts` parameter, it is necessary to set a name, path, and any annotations that the Ingress controller should know about. Not all annotations are supported by all Ingress controllers, but [this annotation reference document](https://github.com/kubernetes/ingress-nginx/blob/master/docs/user-guide/nginx-configuration/annotations.md) lists the annotations supported by many popular Ingress controllers.
+
+Adding the TLS parameter (where available) will cause the chart to generate HTTPS URLs, and the  application will be available on port 443. The actual TLS secrets do not have to be generated by this chart. However, if TLS is enabled, the Ingress record will not work until the TLS secret exists.
+
+[Learn more about Ingress controllers](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/).
+
+### TLS secrets
+
+This chart facilitates the creation of TLS secrets for use with the Ingress controller (although this is not mandatory). There are several common use cases:
+
+- Generate certificate secrets based on chart parameters.
+- Enable externally generated certificates.
+- Manage application certificates via an external service (like [cert-manager](https://github.com/jetstack/cert-manager/)).
+- Create self-signed certificates within the chart (if supported).
+
+In the first two cases, a certificate and a key are needed. Files are expected in `.pem` format.
+
+Here is an example of a certificate file:
+
+> NOTE: There may be more than one certificate if there is a certificate chain.
+
+```text
+-----BEGIN CERTIFICATE-----
+MIID6TCCAtGgAwIBAgIJAIaCwivkeB5EMA0GCSqGSIb3DQEBCwUAMFYxCzAJBgNV
+...
+jScrvkiBO65F46KioCL9h5tDvomdU1aqpI/CBzhvZn1c0ZTf87tGQR8NK7v7
+-----END CERTIFICATE-----
+```
+
+Here is an example of a certificate key:
+
+```text
+-----BEGIN RSA PRIVATE KEY-----
+MIIEogIBAAKCAQEAvLYcyu8f3skuRyUgeeNpeDvYBCDcgq+LsWap6zbX5f8oLqp4
+...
+wrj2wDbCDCFmfqnSJ+dKI3vFLlEz44sAV8jX/kd4Y6ZTQhlLbYc=
+-----END RSA PRIVATE KEY-----
+```
+
+- If using Helm to manage the certificates based on the parameters, copy these values into the `certificate` and `key` values for a given `*.ingress.secrets` entry.
+- If managing TLS secrets separately, it is necessary to create a TLS secret with name `INGRESS_HOSTNAME-tls` (where INGRESS_HOSTNAME is a placeholder to be replaced with the hostname you set using the `*.ingress.hostname` parameter).
+- If your cluster has a [cert-manager](https://github.com/jetstack/cert-manager) add-on to automate the management and issuance of TLS certificates, add to `*.ingress.annotations` the [corresponding ones](https://cert-manager.io/docs/usage/ingress/#supported-annotations) for cert-manager.
+- If using self-signed certificates created by Helm, set both `*.ingress.tls` and `*.ingress.selfSigned` to `true`.
+
+### Additional environment variables
+
+In case you want to add extra environment variables (useful for advanced operations like custom init scripts), you can use the `extraEnvVars` property.
+
+```yaml
+sonarqube:
+  extraEnvVars:
+    - name: LOG_LEVEL
+      value: error
+```
+
+Alternatively, you can use a ConfigMap or a Secret with the environment variables. To do so, use the `extraEnvVarsCM` or the `extraEnvVarsSecret` values.
+
+### Enable metrics
+
+The chart can optionally start a sidecar exporter for [Prometheus](https://prometheus.io/) to expose JMX metrics. The metrics endpoint is exposed in a separate service.
+
+To start the sidecar Prometheus exporter, set the *metrics.jmx.enabled* parameter to *true* when deploying the chart. Refer to the chart parameters for the default port number.
+
+Metrics can be scraped from within the cluster using any of the following approaches:
+
+- Adding the required annotations in the service for Prometheus to discover the metrics endpoints, as in the example below:
+
+    ```yaml
+    metrics:
+      jmx:
+        service:
+          annotations:
+            prometheus.io/scrape: "true"
+            prometheus.io/port: "10443"
+            prometheus.io/path: "/"
+    ```
+
+- Creating a ServiceMonitor (when the Prometheus Operator is available in the cluster). You can do this setting the *metrics.serviceMonitor.enabled* parameter to *true* when deploying the chart.
+- Using something similar to the [example Prometheus scrape configuration](https://github.com/prometheus/prometheus/blob/master/documentation/examples/prometheus-kubernetes.yml).
+
+If metrics are to be scraped from outside the cluster, the Kubernetes API proxy can be utilized to access the endpoint.
+
+### Sidecars
+
+If additional containers are needed in the same pod as SonarQube&trade; (such as additional metrics or logging exporters), they can be defined using the `sidecars` parameter.
+
+```yaml
+sidecars:
+- name: your-image-name
+  image: your-image
+  imagePullPolicy: Always
+  ports:
+  - name: portname
+    containerPort: 1234
+```
+
+If these sidecars export extra ports, extra port definitions can be added using the `service.extraPorts` parameter (where available), as shown in the example below:
+
+```yaml
+service:
+  extraPorts:
+  - name: extraPort
+    port: 11311
+    targetPort: 11311
+```
+
+> NOTE: This Helm chart already includes sidecar containers for the Prometheus exporters (where applicable). These can be activated by adding the `--enable-metrics=true` parameter at deployment time. The `sidecars` parameter should therefore only be used for any extra sidecar containers.
+
+If additional init containers are needed in the same pod, they can be defined using the `initContainers` parameter. Here is an example:
+
+```yaml
+initContainers:
+  - name: your-image-name
+    image: your-image
+    imagePullPolicy: Always
+    ports:
+      - name: portname
+        containerPort: 1234
+```
+
+Learn more about [sidecar containers](https://kubernetes.io/docs/concepts/workloads/pods/) and [init containers](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/).
+
+### Pod affinity
+
+This chart allows you to set your custom affinity using the `affinity` parameter. Find more information about Pod affinity in the [kubernetes documentation](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity).
+
+As an alternative, use one of the preset configurations for pod affinity, pod anti-affinity, and node affinity available at the [bitnami/common](https://github.com/bitnami/charts/tree/main/bitnami/common#affinities) chart. To do so, set the `podAffinityPreset`, `podAntiAffinityPreset`, or `nodeAffinityPreset` parameters.
+
+## Persistence
+
+The [Bitnami SonarQube&trade;](https://github.com/bitnami/containers/tree/main/bitnami/sonarqube) image stores the SonarQube&trade; data and configurations at the `/bitnami/sonarqube` path of the container. Persistent Volume Claims are used to keep the data across deployments.
+
+### Adjust permissions of persistent volume mountpoint
+
+As the image run as non-root by default, it is necessary to adjust the ownership of the persistent volume so that the container can write data into it.
+
+By default, the chart is configured to use Kubernetes Security Context to automatically change the ownership of the volume. However, this feature does not work in all Kubernetes distributions.
+
+As an alternative, this chart supports using an initContainer to change the ownership of the volume before mounting it in the final destination. You can enable this initContainer by setting `volumePermissions.enabled` to `true`.
 
 ## Parameters
 
 ### Global parameters
 
-| Name                      | Description                                     | Value |
-| ------------------------- | ----------------------------------------------- | ----- |
-| `global.imageRegistry`    | Global Docker image registry                    | `""`  |
-| `global.imagePullSecrets` | Global Docker registry secret names as an array | `[]`  |
-| `global.storageClass`     | Global StorageClass for Persistent Volume(s)    | `""`  |
+| Name                                                  | Description                                                                                                                                                                                                                                                                                                                                                         | Value      |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `global.imageRegistry`                                | Global Docker image registry                                                                                                                                                                                                                                                                                                                                        | `""`       |
+| `global.imagePullSecrets`                             | Global Docker registry secret names as an array                                                                                                                                                                                                                                                                                                                     | `[]`       |
+| `global.storageClass`                                 | Global StorageClass for Persistent Volume(s)                                                                                                                                                                                                                                                                                                                        | `""`       |
+| `global.compatibility.openshift.adaptSecurityContext` | Adapt the securityContext sections of the deployment to make them compatible with Openshift restricted-v2 SCC: remove runAsUser, runAsGroup and fsGroup and let the platform use their allowed default IDs. Possible values: auto (apply if the detected running cluster is Openshift), force (perform the adaptation always), disabled (do not perform adaptation) | `disabled` |
 
 ### Common parameters
 
@@ -74,15 +253,14 @@ The command removes all the Kubernetes components associated with the chart and 
 
 ### SonarQube&trade; Image parameters
 
-| Name                | Description                                                                                                      | Value                 |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------- |
-| `image.registry`    | SonarQube&trade; image registry                                                                                  | `docker.io`           |
-| `image.repository`  | SonarQube&trade; image repository                                                                                | `bitnami/sonarqube`   |
-| `image.tag`         | SonarQube&trade; image tag (immutable tags are recommended)                                                      | `10.0.0-debian-11-r2` |
-| `image.digest`      | SonarQube&trade; image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag | `""`                  |
-| `image.pullPolicy`  | SonarQube&trade; image pull policy                                                                               | `IfNotPresent`        |
-| `image.pullSecrets` | SonarQube&trade; image pull secrets                                                                              | `[]`                  |
-| `image.debug`       | Enable SonarQube&trade; image debug mode                                                                         | `false`               |
+| Name                | Description                                                                                                      | Value                       |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| `image.registry`    | SonarQube&trade; image registry                                                                                  | `REGISTRY_NAME`             |
+| `image.repository`  | SonarQube&trade; image repository                                                                                | `REPOSITORY_NAME/sonarqube` |
+| `image.digest`      | SonarQube&trade; image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag | `""`                        |
+| `image.pullPolicy`  | SonarQube&trade; image pull policy                                                                               | `IfNotPresent`              |
+| `image.pullSecrets` | SonarQube&trade; image pull secrets                                                                              | `[]`                        |
+| `image.debug`       | Enable SonarQube&trade; image debug mode                                                                         | `false`                     |
 
 ### SonarQube&trade; Configuration parameters
 
@@ -131,159 +309,181 @@ The command removes all the Kubernetes components associated with the chart and 
 
 ### SonarQube&trade; deployment parameters
 
-| Name                                    | Description                                                                                    | Value           |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------- | --------------- |
-| `replicaCount`                          | Number of SonarQube&trade; replicas to deploy                                                  | `1`             |
-| `containerPorts.http`                   | SonarQube&trade; HTTP container port                                                           | `9000`          |
-| `containerPorts.elastic`                | SonarQube&trade; Elasticsearch container port                                                  | `9001`          |
-| `livenessProbe.enabled`                 | Enable livenessProbe on SonarQube&trade; containers                                            | `true`          |
-| `livenessProbe.initialDelaySeconds`     | Initial delay seconds for livenessProbe                                                        | `100`           |
-| `livenessProbe.periodSeconds`           | Period seconds for livenessProbe                                                               | `10`            |
-| `livenessProbe.timeoutSeconds`          | Timeout seconds for livenessProbe                                                              | `5`             |
-| `livenessProbe.failureThreshold`        | Failure threshold for livenessProbe                                                            | `6`             |
-| `livenessProbe.successThreshold`        | Success threshold for livenessProbe                                                            | `1`             |
-| `readinessProbe.enabled`                | Enable readinessProbe on SonarQube&trade; containers                                           | `true`          |
-| `readinessProbe.initialDelaySeconds`    | Initial delay seconds for readinessProbe                                                       | `100`           |
-| `readinessProbe.periodSeconds`          | Period seconds for readinessProbe                                                              | `10`            |
-| `readinessProbe.timeoutSeconds`         | Timeout seconds for readinessProbe                                                             | `5`             |
-| `readinessProbe.failureThreshold`       | Failure threshold for readinessProbe                                                           | `6`             |
-| `readinessProbe.successThreshold`       | Success threshold for readinessProbe                                                           | `1`             |
-| `startupProbe.enabled`                  | Enable startupProbe on SonarQube&trade; containers                                             | `false`         |
-| `startupProbe.initialDelaySeconds`      | Initial delay seconds for startupProbe                                                         | `30`            |
-| `startupProbe.periodSeconds`            | Period seconds for startupProbe                                                                | `10`            |
-| `startupProbe.timeoutSeconds`           | Timeout seconds for startupProbe                                                               | `1`             |
-| `startupProbe.failureThreshold`         | Failure threshold for startupProbe                                                             | `15`            |
-| `startupProbe.successThreshold`         | Success threshold for startupProbe                                                             | `1`             |
-| `customLivenessProbe`                   | Custom livenessProbe that overrides the default one                                            | `{}`            |
-| `customReadinessProbe`                  | Custom readinessProbe that overrides the default one                                           | `{}`            |
-| `customStartupProbe`                    | Custom startupProbe that overrides the default one                                             | `{}`            |
-| `resources.limits`                      | The resources limits for the SonarQube&trade; containers                                       | `{}`            |
-| `resources.requests`                    | The requested resources for the SonarQube&trade; containers                                    | `{}`            |
-| `podSecurityContext.enabled`            | Enabled SonarQube&trade; pods' Security Context                                                | `true`          |
-| `podSecurityContext.fsGroup`            | Set SonarQube&trade; pod's Security Context fsGroup                                            | `1001`          |
-| `containerSecurityContext.enabled`      | Enabled SonarQube&trade; containers' Security Context                                          | `true`          |
-| `containerSecurityContext.runAsUser`    | Set SonarQube&trade; containers' Security Context runAsUser                                    | `1001`          |
-| `containerSecurityContext.runAsNonRoot` | Set SonarQube&trade; containers' Security Context runAsNonRoot                                 | `true`          |
-| `hostAliases`                           | SonarQube&trade; pods host aliases                                                             | `[]`            |
-| `podLabels`                             | Extra labels for SonarQube&trade; pods                                                         | `{}`            |
-| `podAnnotations`                        | Annotations for SonarQube&trade; pods                                                          | `{}`            |
-| `podAffinityPreset`                     | Pod affinity preset. Ignored if `affinity` is set. Allowed values: `soft` or `hard`            | `""`            |
-| `podAntiAffinityPreset`                 | Pod anti-affinity preset. Ignored if `affinity` is set. Allowed values: `soft` or `hard`       | `soft`          |
-| `nodeAffinityPreset.type`               | Node affinity preset type. Ignored if `affinity` is set. Allowed values: `soft` or `hard`      | `""`            |
-| `nodeAffinityPreset.key`                | Node label key to match. Ignored if `affinity` is set                                          | `""`            |
-| `nodeAffinityPreset.values`             | Node label values to match. Ignored if `affinity` is set                                       | `[]`            |
-| `affinity`                              | Affinity for SonarQube&trade; pods assignment                                                  | `{}`            |
-| `nodeSelector`                          | Node labels for SonarQube&trade; pods assignment                                               | `{}`            |
-| `tolerations`                           | Tolerations for SonarQube&trade; pods assignment                                               | `[]`            |
-| `updateStrategy.type`                   | SonarQube&trade; statefulset strategy type                                                     | `RollingUpdate` |
-| `priorityClassName`                     | SonarQube&trade; pods' priorityClassName                                                       | `""`            |
-| `schedulerName`                         | Name of the k8s scheduler (other than default) for SonarQube&trade; pods                       | `""`            |
-| `lifecycleHooks`                        | for the SonarQube&trade; container(s) to automate configuration before or after startup        | `{}`            |
-| `extraVolumes`                          | Optionally specify extra list of additional volumes for the SonarQube&trade; pod(s)            | `[]`            |
-| `extraVolumeMounts`                     | Optionally specify extra list of additional volumeMounts for the SonarQube&trade; container(s) | `[]`            |
-| `sidecars`                              | Add additional sidecar containers to the SonarQube&trade; pod(s)                               | `[]`            |
-| `initContainers`                        | Add additional init containers to the SonarQube&trade; pod(s)                                  | `[]`            |
+| Name                                                | Description                                                                                                                                                                                                | Value            |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| `replicaCount`                                      | Number of SonarQube&trade; replicas to deploy                                                                                                                                                              | `1`              |
+| `containerPorts.http`                               | SonarQube&trade; HTTP container port                                                                                                                                                                       | `9000`           |
+| `containerPorts.elastic`                            | SonarQube&trade; Elasticsearch container port                                                                                                                                                              | `9001`           |
+| `livenessProbe.enabled`                             | Enable livenessProbe on SonarQube&trade; containers                                                                                                                                                        | `true`           |
+| `livenessProbe.initialDelaySeconds`                 | Initial delay seconds for livenessProbe                                                                                                                                                                    | `100`            |
+| `livenessProbe.periodSeconds`                       | Period seconds for livenessProbe                                                                                                                                                                           | `10`             |
+| `livenessProbe.timeoutSeconds`                      | Timeout seconds for livenessProbe                                                                                                                                                                          | `5`              |
+| `livenessProbe.failureThreshold`                    | Failure threshold for livenessProbe                                                                                                                                                                        | `6`              |
+| `livenessProbe.successThreshold`                    | Success threshold for livenessProbe                                                                                                                                                                        | `1`              |
+| `readinessProbe.enabled`                            | Enable readinessProbe on SonarQube&trade; containers                                                                                                                                                       | `true`           |
+| `readinessProbe.initialDelaySeconds`                | Initial delay seconds for readinessProbe                                                                                                                                                                   | `100`            |
+| `readinessProbe.periodSeconds`                      | Period seconds for readinessProbe                                                                                                                                                                          | `10`             |
+| `readinessProbe.timeoutSeconds`                     | Timeout seconds for readinessProbe                                                                                                                                                                         | `5`              |
+| `readinessProbe.failureThreshold`                   | Failure threshold for readinessProbe                                                                                                                                                                       | `6`              |
+| `readinessProbe.successThreshold`                   | Success threshold for readinessProbe                                                                                                                                                                       | `1`              |
+| `startupProbe.enabled`                              | Enable startupProbe on SonarQube&trade; containers                                                                                                                                                         | `false`          |
+| `startupProbe.initialDelaySeconds`                  | Initial delay seconds for startupProbe                                                                                                                                                                     | `30`             |
+| `startupProbe.periodSeconds`                        | Period seconds for startupProbe                                                                                                                                                                            | `10`             |
+| `startupProbe.timeoutSeconds`                       | Timeout seconds for startupProbe                                                                                                                                                                           | `1`              |
+| `startupProbe.failureThreshold`                     | Failure threshold for startupProbe                                                                                                                                                                         | `15`             |
+| `startupProbe.successThreshold`                     | Success threshold for startupProbe                                                                                                                                                                         | `1`              |
+| `customLivenessProbe`                               | Custom livenessProbe that overrides the default one                                                                                                                                                        | `{}`             |
+| `customReadinessProbe`                              | Custom readinessProbe that overrides the default one                                                                                                                                                       | `{}`             |
+| `customStartupProbe`                                | Custom startupProbe that overrides the default one                                                                                                                                                         | `{}`             |
+| `resourcesPreset`                                   | Set container resources according to one common preset (allowed values: none, nano, small, medium, large, xlarge, 2xlarge). This is ignored if resources is set (resources is recommended for production). | `none`           |
+| `resources`                                         | Set container requests and limits for different resources like CPU or memory (essential for production workloads)                                                                                          | `{}`             |
+| `podSecurityContext.enabled`                        | Enabled SonarQube&trade; pods' Security Context                                                                                                                                                            | `true`           |
+| `podSecurityContext.fsGroupChangePolicy`            | Set filesystem group change policy                                                                                                                                                                         | `Always`         |
+| `podSecurityContext.sysctls`                        | Set kernel settings using the sysctl interface                                                                                                                                                             | `[]`             |
+| `podSecurityContext.supplementalGroups`             | Set filesystem extra groups                                                                                                                                                                                | `[]`             |
+| `podSecurityContext.fsGroup`                        | Set SonarQube&trade; pod's Security Context fsGroup                                                                                                                                                        | `1001`           |
+| `containerSecurityContext.enabled`                  | Enabled containers' Security Context                                                                                                                                                                       | `true`           |
+| `containerSecurityContext.seLinuxOptions`           | Set SELinux options in container                                                                                                                                                                           | `nil`            |
+| `containerSecurityContext.runAsUser`                | Set containers' Security Context runAsUser                                                                                                                                                                 | `1001`           |
+| `containerSecurityContext.runAsNonRoot`             | Set container's Security Context runAsNonRoot                                                                                                                                                              | `true`           |
+| `containerSecurityContext.privileged`               | Set container's Security Context privileged                                                                                                                                                                | `false`          |
+| `containerSecurityContext.readOnlyRootFilesystem`   | Set container's Security Context readOnlyRootFilesystem                                                                                                                                                    | `false`          |
+| `containerSecurityContext.allowPrivilegeEscalation` | Set container's Security Context allowPrivilegeEscalation                                                                                                                                                  | `false`          |
+| `containerSecurityContext.capabilities.drop`        | List of capabilities to be dropped                                                                                                                                                                         | `["ALL"]`        |
+| `containerSecurityContext.seccompProfile.type`      | Set container's Security Context seccomp profile                                                                                                                                                           | `RuntimeDefault` |
+| `automountServiceAccountToken`                      | Mount Service Account token in pod                                                                                                                                                                         | `false`          |
+| `hostAliases`                                       | SonarQube&trade; pods host aliases                                                                                                                                                                         | `[]`             |
+| `podLabels`                                         | Extra labels for SonarQube&trade; pods                                                                                                                                                                     | `{}`             |
+| `podAnnotations`                                    | Annotations for SonarQube&trade; pods                                                                                                                                                                      | `{}`             |
+| `podAffinityPreset`                                 | Pod affinity preset. Ignored if `affinity` is set. Allowed values: `soft` or `hard`                                                                                                                        | `""`             |
+| `podAntiAffinityPreset`                             | Pod anti-affinity preset. Ignored if `affinity` is set. Allowed values: `soft` or `hard`                                                                                                                   | `soft`           |
+| `nodeAffinityPreset.type`                           | Node affinity preset type. Ignored if `affinity` is set. Allowed values: `soft` or `hard`                                                                                                                  | `""`             |
+| `nodeAffinityPreset.key`                            | Node label key to match. Ignored if `affinity` is set                                                                                                                                                      | `""`             |
+| `nodeAffinityPreset.values`                         | Node label values to match. Ignored if `affinity` is set                                                                                                                                                   | `[]`             |
+| `affinity`                                          | Affinity for SonarQube&trade; pods assignment                                                                                                                                                              | `{}`             |
+| `nodeSelector`                                      | Node labels for SonarQube&trade; pods assignment                                                                                                                                                           | `{}`             |
+| `tolerations`                                       | Tolerations for SonarQube&trade; pods assignment                                                                                                                                                           | `[]`             |
+| `updateStrategy.type`                               | SonarQube&trade; deployment strategy type                                                                                                                                                                  | `RollingUpdate`  |
+| `priorityClassName`                                 | SonarQube&trade; pods' priorityClassName                                                                                                                                                                   | `""`             |
+| `schedulerName`                                     | Name of the k8s scheduler (other than default) for SonarQube&trade; pods                                                                                                                                   | `""`             |
+| `lifecycleHooks`                                    | for the SonarQube&trade; container(s) to automate configuration before or after startup                                                                                                                    | `{}`             |
+| `extraVolumes`                                      | Optionally specify extra list of additional volumes for the SonarQube&trade; pod(s)                                                                                                                        | `[]`             |
+| `extraVolumeMounts`                                 | Optionally specify extra list of additional volumeMounts for the SonarQube&trade; container(s)                                                                                                             | `[]`             |
+| `sidecars`                                          | Add additional sidecar containers to the SonarQube&trade; pod(s)                                                                                                                                           | `[]`             |
+| `initContainers`                                    | Add additional init containers to the SonarQube&trade; pod(s)                                                                                                                                              | `[]`             |
 
 ### Traffic Exposure Parameters
 
-| Name                               | Description                                                                                                                      | Value                    |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| `service.type`                     | SonarQube&trade; service type                                                                                                    | `LoadBalancer`           |
-| `service.ports.http`               | SonarQube&trade; service HTTP port                                                                                               | `80`                     |
-| `service.ports.elastic`            | SonarQube&trade; service ElasticSearch port                                                                                      | `9001`                   |
-| `service.nodePorts.http`           | Node port for HTTP                                                                                                               | `""`                     |
-| `service.nodePorts.elastic`        | Node port for ElasticSearch                                                                                                      | `""`                     |
-| `service.clusterIP`                | SonarQube&trade; service Cluster IP                                                                                              | `""`                     |
-| `service.loadBalancerIP`           | SonarQube&trade; service Load Balancer IP                                                                                        | `""`                     |
-| `service.loadBalancerSourceRanges` | SonarQube&trade; service Load Balancer sources                                                                                   | `[]`                     |
-| `service.externalTrafficPolicy`    | SonarQube&trade; service external traffic policy                                                                                 | `Cluster`                |
-| `service.annotations`              | Additional custom annotations for SonarQube&trade; service                                                                       | `{}`                     |
-| `service.extraPorts`               | Extra ports to expose in SonarQube&trade; service (normally used with the `sidecars` value)                                      | `[]`                     |
-| `service.sessionAffinity`          | Session Affinity for Kubernetes service, can be "None" or "ClientIP"                                                             | `None`                   |
-| `service.sessionAffinityConfig`    | Additional settings for the sessionAffinity                                                                                      | `{}`                     |
-| `ingress.enabled`                  | Enable ingress record generation for SonarQube&trade;                                                                            | `false`                  |
-| `ingress.pathType`                 | Ingress path type                                                                                                                | `ImplementationSpecific` |
-| `ingress.apiVersion`               | Force Ingress API version (automatically detected if not set)                                                                    | `""`                     |
-| `ingress.ingressClassName`         | IngressClass that will be be used to implement the Ingress (Kubernetes 1.18+)                                                    | `""`                     |
-| `ingress.hostname`                 | Default host for the ingress record                                                                                              | `sonarqube.local`        |
-| `ingress.path`                     | Default path for the ingress record                                                                                              | `/`                      |
-| `ingress.annotations`              | Additional annotations for the Ingress resource. To enable certificate autogeneration, place here your cert-manager annotations. | `{}`                     |
-| `ingress.tls`                      | Enable TLS configuration for the host defined at `ingress.hostname` parameter                                                    | `false`                  |
-| `ingress.selfSigned`               | Create a TLS secret for this ingress record using self-signed certificates generated by Helm                                     | `false`                  |
-| `ingress.extraHosts`               | An array with additional hostname(s) to be covered with the ingress record                                                       | `[]`                     |
-| `ingress.extraPaths`               | An array with additional arbitrary paths that may need to be added to the ingress under the main host                            | `[]`                     |
-| `ingress.extraTls`                 | TLS configuration for additional hostname(s) to be covered with this ingress record                                              | `[]`                     |
-| `ingress.secrets`                  | Custom TLS certificates as secrets                                                                                               | `[]`                     |
-| `ingress.extraRules`               | Additional rules to be covered with this ingress record                                                                          | `[]`                     |
+| Name                                    | Description                                                                                                                      | Value                    |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| `service.type`                          | SonarQube&trade; service type                                                                                                    | `LoadBalancer`           |
+| `service.ports.http`                    | SonarQube&trade; service HTTP port                                                                                               | `80`                     |
+| `service.ports.elastic`                 | SonarQube&trade; service ElasticSearch port                                                                                      | `9001`                   |
+| `service.nodePorts.http`                | Node port for HTTP                                                                                                               | `""`                     |
+| `service.nodePorts.elastic`             | Node port for ElasticSearch                                                                                                      | `""`                     |
+| `service.clusterIP`                     | SonarQube&trade; service Cluster IP                                                                                              | `""`                     |
+| `service.loadBalancerIP`                | SonarQube&trade; service Load Balancer IP                                                                                        | `""`                     |
+| `service.loadBalancerSourceRanges`      | SonarQube&trade; service Load Balancer sources                                                                                   | `[]`                     |
+| `service.externalTrafficPolicy`         | SonarQube&trade; service external traffic policy                                                                                 | `Cluster`                |
+| `service.annotations`                   | Additional custom annotations for SonarQube&trade; service                                                                       | `{}`                     |
+| `service.extraPorts`                    | Extra ports to expose in SonarQube&trade; service (normally used with the `sidecars` value)                                      | `[]`                     |
+| `service.sessionAffinity`               | Session Affinity for Kubernetes service, can be "None" or "ClientIP"                                                             | `None`                   |
+| `service.sessionAffinityConfig`         | Additional settings for the sessionAffinity                                                                                      | `{}`                     |
+| `networkPolicy.enabled`                 | Specifies whether a NetworkPolicy should be created                                                                              | `true`                   |
+| `networkPolicy.allowExternal`           | Don't require client label for connections                                                                                       | `true`                   |
+| `networkPolicy.allowExternalEgress`     | Allow the pod to access any range of port and all destinations.                                                                  | `true`                   |
+| `networkPolicy.extraIngress`            | Add extra ingress rules to the NetworkPolice                                                                                     | `[]`                     |
+| `networkPolicy.extraEgress`             | Add extra ingress rules to the NetworkPolicy                                                                                     | `[]`                     |
+| `networkPolicy.ingressNSMatchLabels`    | Labels to match to allow traffic from other namespaces                                                                           | `{}`                     |
+| `networkPolicy.ingressNSPodMatchLabels` | Pod labels to match to allow traffic from other namespaces                                                                       | `{}`                     |
+| `ingress.enabled`                       | Enable ingress record generation for SonarQube&trade;                                                                            | `false`                  |
+| `ingress.pathType`                      | Ingress path type                                                                                                                | `ImplementationSpecific` |
+| `ingress.apiVersion`                    | Force Ingress API version (automatically detected if not set)                                                                    | `""`                     |
+| `ingress.ingressClassName`              | IngressClass that will be be used to implement the Ingress (Kubernetes 1.18+)                                                    | `""`                     |
+| `ingress.hostname`                      | Default host for the ingress record                                                                                              | `sonarqube.local`        |
+| `ingress.path`                          | Default path for the ingress record                                                                                              | `/`                      |
+| `ingress.annotations`                   | Additional annotations for the Ingress resource. To enable certificate autogeneration, place here your cert-manager annotations. | `{}`                     |
+| `ingress.labels`                        | Additional labels for the Ingress resource.                                                                                      | `{}`                     |
+| `ingress.tls`                           | Enable TLS configuration for the host defined at `ingress.hostname` parameter                                                    | `false`                  |
+| `ingress.selfSigned`                    | Create a TLS secret for this ingress record using self-signed certificates generated by Helm                                     | `false`                  |
+| `ingress.extraHosts`                    | An array with additional hostname(s) to be covered with the ingress record                                                       | `[]`                     |
+| `ingress.extraPaths`                    | An array with additional arbitrary paths that may need to be added to the ingress under the main host                            | `[]`                     |
+| `ingress.extraTls`                      | TLS configuration for additional hostname(s) to be covered with this ingress record                                              | `[]`                     |
+| `ingress.secrets`                       | Custom TLS certificates as secrets                                                                                               | `[]`                     |
+| `ingress.extraRules`                    | Additional rules to be covered with this ingress record                                                                          | `[]`                     |
 
 ### SonarQube caCerts provisioning parameters
 
-| Name                                         | Description                                                                                                   | Value                   |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| `caCerts.enabled`                            | Enable the use of caCerts                                                                                     | `false`                 |
-| `caCerts.image.registry`                     | Bitnami Shell image registry                                                                                  | `docker.io`             |
-| `caCerts.image.repository`                   | Bitnami Shell image repository                                                                                | `bitnami/bitnami-shell` |
-| `caCerts.image.tag`                          | Bitnami Shell image tag (immutable tags are recommended)                                                      | `11-debian-11-r113`     |
-| `caCerts.image.digest`                       | Bitnami Shell image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag | `""`                    |
-| `caCerts.image.pullPolicy`                   | Bitnami Shell image pull policy                                                                               | `IfNotPresent`          |
-| `caCerts.image.pullSecrets`                  | Bitnami Shell image pull secrets                                                                              | `[]`                    |
-| `caCerts.secret`                             | Name of the secret containing the certificates                                                                | `ca-certs-secret`       |
-| `caCerts.resources.limits`                   | The resources limits for the init container                                                                   | `{}`                    |
-| `caCerts.resources.requests`                 | The requested resources for the init container                                                                | `{}`                    |
-| `caCerts.containerSecurityContext.runAsUser` | Set init container's Security Context runAsUser                                                               | `0`                     |
+| Name                                              | Description                                                                                                                                                                                                                | Value                      |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| `caCerts.enabled`                                 | Enable the use of caCerts                                                                                                                                                                                                  | `false`                    |
+| `caCerts.image.registry`                          | OS Shell + Utility image registry                                                                                                                                                                                          | `REGISTRY_NAME`            |
+| `caCerts.image.repository`                        | OS Shell + Utility image repository                                                                                                                                                                                        | `REPOSITORY_NAME/os-shell` |
+| `caCerts.image.digest`                            | OS Shell + Utility image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag                                                                                                         | `""`                       |
+| `caCerts.image.pullPolicy`                        | OS Shell + Utility image pull policy                                                                                                                                                                                       | `IfNotPresent`             |
+| `caCerts.image.pullSecrets`                       | OS Shell + Utility image pull secrets                                                                                                                                                                                      | `[]`                       |
+| `caCerts.secret`                                  | Name of the secret containing the certificates                                                                                                                                                                             | `ca-certs-secret`          |
+| `caCerts.resourcesPreset`                         | Set container resources according to one common preset (allowed values: none, nano, small, medium, large, xlarge, 2xlarge). This is ignored if caCerts.resources is set (caCerts.resources is recommended for production). | `none`                     |
+| `caCerts.resources`                               | Set container requests and limits for different resources like CPU or memory (essential for production workloads)                                                                                                          | `{}`                       |
+| `caCerts.containerSecurityContext.enabled`        | Enable container security context                                                                                                                                                                                          | `true`                     |
+| `caCerts.containerSecurityContext.seLinuxOptions` | Set SELinux options in container                                                                                                                                                                                           | `nil`                      |
+| `caCerts.containerSecurityContext.runAsUser`      | Set init container's Security Context runAsUser                                                                                                                                                                            | `0`                        |
 
 ### SonarQube plugin provisioning parameters
 
-| Name                                         | Description                                                                                                   | Value                   |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| `plugins.install`                            | List of plugin URLS to download and install                                                                   | `[]`                    |
-| `plugins.netrcCreds`                         | .netrc secret file with a key "netrc" to use basic auth while downloading plugins                             | `""`                    |
-| `plugins.noCheckCertificate`                 | Set to true to not validate the server's certificate to download plugin                                       | `true`                  |
-| `plugins.image.registry`                     | Bitnami Shell image registry                                                                                  | `docker.io`             |
-| `plugins.image.repository`                   | Bitnami Shell image repository                                                                                | `bitnami/bitnami-shell` |
-| `plugins.image.tag`                          | Bitnami Shell image tag (immutable tags are recommended)                                                      | `11-debian-11-r113`     |
-| `plugins.image.digest`                       | Bitnami Shell image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag | `""`                    |
-| `plugins.image.pullPolicy`                   | Bitnami Shell image pull policy                                                                               | `IfNotPresent`          |
-| `plugins.image.pullSecrets`                  | Bitnami Shell image pull secrets                                                                              | `[]`                    |
-| `plugins.resources.limits`                   | The resources limits for the init container                                                                   | `{}`                    |
-| `plugins.resources.requests`                 | The requested resources for the init container                                                                | `{}`                    |
-| `plugins.containerSecurityContext.runAsUser` | Set init container's Security Context runAsUser                                                               | `0`                     |
+| Name                                              | Description                                                                                                                                                                                                                | Value                      |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| `plugins.install`                                 | List of plugin URLS to download and install                                                                                                                                                                                | `[]`                       |
+| `plugins.netrcCreds`                              | .netrc secret file with a key "netrc" to use basic auth while downloading plugins                                                                                                                                          | `""`                       |
+| `plugins.noCheckCertificate`                      | Set to true to not validate the server's certificate to download plugin                                                                                                                                                    | `true`                     |
+| `plugins.image.registry`                          | OS Shell + Utility image registry                                                                                                                                                                                          | `REGISTRY_NAME`            |
+| `plugins.image.repository`                        | OS Shell + Utility image repository                                                                                                                                                                                        | `REPOSITORY_NAME/os-shell` |
+| `plugins.image.digest`                            | OS Shell + Utility image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag                                                                                                         | `""`                       |
+| `plugins.image.pullPolicy`                        | OS Shell + Utility image pull policy                                                                                                                                                                                       | `IfNotPresent`             |
+| `plugins.image.pullSecrets`                       | OS Shell + Utility image pull secrets                                                                                                                                                                                      | `[]`                       |
+| `plugins.resourcesPreset`                         | Set container resources according to one common preset (allowed values: none, nano, small, medium, large, xlarge, 2xlarge). This is ignored if plugins.resources is set (plugins.resources is recommended for production). | `none`                     |
+| `plugins.resources`                               | Set container requests and limits for different resources like CPU or memory (essential for production workloads)                                                                                                          | `{}`                       |
+| `plugins.containerSecurityContext.seLinuxOptions` | Set SELinux options in container                                                                                                                                                                                           | `nil`                      |
+| `plugins.containerSecurityContext.runAsUser`      | Set init container's Security Context runAsUser                                                                                                                                                                            | `0`                        |
 
 ### Persistence Parameters
 
-| Name                                                   | Description                                                                                                   | Value                   |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| `persistence.enabled`                                  | Enable persistence using Persistent Volume Claims                                                             | `false`                 |
-| `persistence.storageClass`                             | Persistent Volume storage class                                                                               | `""`                    |
-| `persistence.accessModes`                              | Persistent Volume access modes                                                                                | `[]`                    |
-| `persistence.size`                                     | Persistent Volume size                                                                                        | `10Gi`                  |
-| `persistence.dataSource`                               | Custom PVC data source                                                                                        | `{}`                    |
-| `persistence.existingClaim`                            | The name of an existing PVC to use for persistence                                                            | `""`                    |
-| `persistence.annotations`                              | Persistent Volume Claim annotations                                                                           | `{}`                    |
-| `volumePermissions.enabled`                            | Enable init container that changes the owner/group of the PV mount point to `runAsUser:fsGroup`               | `false`                 |
-| `volumePermissions.image.registry`                     | Bitnami Shell image registry                                                                                  | `docker.io`             |
-| `volumePermissions.image.repository`                   | Bitnami Shell image repository                                                                                | `bitnami/bitnami-shell` |
-| `volumePermissions.image.tag`                          | Bitnami Shell image tag (immutable tags are recommended)                                                      | `11-debian-11-r113`     |
-| `volumePermissions.image.digest`                       | Bitnami Shell image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag | `""`                    |
-| `volumePermissions.image.pullPolicy`                   | Bitnami Shell image pull policy                                                                               | `IfNotPresent`          |
-| `volumePermissions.image.pullSecrets`                  | Bitnami Shell image pull secrets                                                                              | `[]`                    |
-| `volumePermissions.resources.limits`                   | The resources limits for the init container                                                                   | `{}`                    |
-| `volumePermissions.resources.requests`                 | The requested resources for the init container                                                                | `{}`                    |
-| `volumePermissions.containerSecurityContext.runAsUser` | Set init container's Security Context runAsUser                                                               | `0`                     |
+| Name                                                        | Description                                                                                                                                                                                                                                    | Value                      |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| `persistence.enabled`                                       | Enable persistence using Persistent Volume Claims                                                                                                                                                                                              | `false`                    |
+| `persistence.storageClass`                                  | Persistent Volume storage class                                                                                                                                                                                                                | `""`                       |
+| `persistence.accessModes`                                   | Persistent Volume access modes                                                                                                                                                                                                                 | `[]`                       |
+| `persistence.size`                                          | Persistent Volume size                                                                                                                                                                                                                         | `10Gi`                     |
+| `persistence.dataSource`                                    | Custom PVC data source                                                                                                                                                                                                                         | `{}`                       |
+| `persistence.existingClaim`                                 | The name of an existing PVC to use for persistence                                                                                                                                                                                             | `""`                       |
+| `persistence.annotations`                                   | Persistent Volume Claim annotations                                                                                                                                                                                                            | `{}`                       |
+| `volumePermissions.enabled`                                 | Enable init container that changes the owner/group of the PV mount point to `runAsUser:fsGroup`                                                                                                                                                | `false`                    |
+| `volumePermissions.image.registry`                          | OS Shell + Utility image registry                                                                                                                                                                                                              | `REGISTRY_NAME`            |
+| `volumePermissions.image.repository`                        | OS Shell + Utility image repository                                                                                                                                                                                                            | `REPOSITORY_NAME/os-shell` |
+| `volumePermissions.image.digest`                            | OS Shell + Utility image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag                                                                                                                             | `""`                       |
+| `volumePermissions.image.pullPolicy`                        | OS Shell + Utility image pull policy                                                                                                                                                                                                           | `IfNotPresent`             |
+| `volumePermissions.image.pullSecrets`                       | OS Shell + Utility image pull secrets                                                                                                                                                                                                          | `[]`                       |
+| `volumePermissions.resourcesPreset`                         | Set container resources according to one common preset (allowed values: none, nano, small, medium, large, xlarge, 2xlarge). This is ignored if volumePermissions.resources is set (volumePermissions.resources is recommended for production). | `none`                     |
+| `volumePermissions.resources`                               | Set container requests and limits for different resources like CPU or memory (essential for production workloads)                                                                                                                              | `{}`                       |
+| `volumePermissions.containerSecurityContext.seLinuxOptions` | Set SELinux options in container                                                                                                                                                                                                               | `nil`                      |
+| `volumePermissions.containerSecurityContext.runAsUser`      | Set init container's Security Context runAsUser                                                                                                                                                                                                | `0`                        |
 
 ### Sysctl Image parameters
 
-| Name                        | Description                                                                                                   | Value                   |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| `sysctl.enabled`            | Enable kernel settings modifier image                                                                         | `true`                  |
-| `sysctl.image.registry`     | Bitnami Shell image registry                                                                                  | `docker.io`             |
-| `sysctl.image.repository`   | Bitnami Shell image repository                                                                                | `bitnami/bitnami-shell` |
-| `sysctl.image.tag`          | Bitnami Shell image tag (immutable tags are recommended)                                                      | `11-debian-11-r113`     |
-| `sysctl.image.digest`       | Bitnami Shell image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag | `""`                    |
-| `sysctl.image.pullPolicy`   | Bitnami Shell image pull policy                                                                               | `IfNotPresent`          |
-| `sysctl.image.pullSecrets`  | Bitnami Shell image pull secrets                                                                              | `[]`                    |
-| `sysctl.resources.limits`   | The resources limits for the init container                                                                   | `{}`                    |
-| `sysctl.resources.requests` | The requested resources for the init container                                                                | `{}`                    |
+| Name                                             | Description                                                                                                                                                                                                              | Value                      |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------- |
+| `sysctl.enabled`                                 | Enable kernel settings modifier image                                                                                                                                                                                    | `true`                     |
+| `sysctl.image.registry`                          | OS Shell + Utility image registry                                                                                                                                                                                        | `REGISTRY_NAME`            |
+| `sysctl.image.repository`                        | OS Shell + Utility image repository                                                                                                                                                                                      | `REPOSITORY_NAME/os-shell` |
+| `sysctl.image.digest`                            | OS Shell + Utility image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag                                                                                                       | `""`                       |
+| `sysctl.image.pullPolicy`                        | OS Shell + Utility image pull policy                                                                                                                                                                                     | `IfNotPresent`             |
+| `sysctl.image.pullSecrets`                       | OS Shell + Utility image pull secrets                                                                                                                                                                                    | `[]`                       |
+| `sysctl.resourcesPreset`                         | Set container resources according to one common preset (allowed values: none, nano, small, medium, large, xlarge, 2xlarge). This is ignored if sysctl.resources is set (sysctl.resources is recommended for production). | `none`                     |
+| `sysctl.resources`                               | Set container requests and limits for different resources like CPU or memory (essential for production workloads)                                                                                                        | `{}`                       |
+| `sysctl.containerSecurityContext.enabled`        | Enable container security context                                                                                                                                                                                        | `true`                     |
+| `sysctl.containerSecurityContext.seLinuxOptions` | Set SELinux options in container                                                                                                                                                                                         | `nil`                      |
+| `sysctl.containerSecurityContext.runAsUser`      | Set init container's Security Context runAsUser                                                                                                                                                                          | `0`                        |
+| `sysctl.containerSecurityContext.privileged`     | Set init container's Security Context privileged                                                                                                                                                                         | `true`                     |
 
 ### Other Parameters
 
@@ -292,7 +492,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | `rbac.create`                                 | Specifies whether RBAC resources should be created                                                                  | `false` |
 | `serviceAccount.create`                       | Specifies whether a ServiceAccount should be created                                                                | `true`  |
 | `serviceAccount.name`                         | Name of the service account to use. If not set and create is true, a name is generated using the fullname template. | `""`    |
-| `serviceAccount.automountServiceAccountToken` | Automount service account token for the server service account                                                      | `true`  |
+| `serviceAccount.automountServiceAccountToken` | Automount service account token for the server service account                                                      | `false` |
 | `serviceAccount.annotations`                  | Annotations for service account. Evaluated as a template. Only used if `create` is `true`.                          | `{}`    |
 | `autoscaling.enabled`                         | Enable Horizontal POD autoscaling for SonarQube&trade;                                                              | `false` |
 | `autoscaling.minReplicas`                     | Minimum number of SonarQube&trade; replicas                                                                         | `1`     |
@@ -302,34 +502,34 @@ The command removes all the Kubernetes components associated with the chart and 
 
 ### Metrics parameters
 
-| Name                                                | Description                                                                                                  | Value                  |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ---------------------- |
-| `metrics.jmx.enabled`                               | Whether or not to expose JMX metrics to Prometheus                                                           | `false`                |
-| `metrics.jmx.image.registry`                        | JMX exporter image registry                                                                                  | `docker.io`            |
-| `metrics.jmx.image.repository`                      | JMX exporter image repository                                                                                | `bitnami/jmx-exporter` |
-| `metrics.jmx.image.tag`                             | JMX exporter image tag (immutable tags are recommended)                                                      | `0.18.0-debian-11-r17` |
-| `metrics.jmx.image.digest`                          | JMX exporter image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag | `""`                   |
-| `metrics.jmx.image.pullPolicy`                      | JMX exporter image pull policy                                                                               | `IfNotPresent`         |
-| `metrics.jmx.image.pullSecrets`                     | Specify docker-registry secret names as an array                                                             | `[]`                   |
-| `metrics.jmx.containerPorts.metrics`                | JMX Exporter metrics container port                                                                          | `10445`                |
-| `metrics.jmx.resources.limits`                      | The resources limits for the init container                                                                  | `{}`                   |
-| `metrics.jmx.resources.requests`                    | The requested resources for the init container                                                               | `{}`                   |
-| `metrics.jmx.containerSecurityContext.enabled`      | Enabled JMX Exporter containers' Security Context                                                            | `true`                 |
-| `metrics.jmx.containerSecurityContext.runAsUser`    | Set JMX Exporter containers' Security Context runAsUser                                                      | `1001`                 |
-| `metrics.jmx.containerSecurityContext.runAsNonRoot` | Set JMX Exporter containers' Security Context runAsNonRoot                                                   | `true`                 |
-| `metrics.jmx.whitelistObjectNames`                  | Allows setting which JMX objects you want to expose to via JMX stats to JMX Exporter                         | `[]`                   |
-| `metrics.jmx.configuration`                         | Configuration file for JMX exporter                                                                          | `""`                   |
-| `metrics.jmx.service.ports.metrics`                 | JMX Exporter Prometheus port                                                                                 | `10443`                |
-| `metrics.jmx.service.annotations`                   | Annotations for the JMX Exporter Prometheus metrics service                                                  | `{}`                   |
-| `metrics.serviceMonitor.enabled`                    | if `true`, creates a Prometheus Operator ServiceMonitor (requires `metrics.jmx.enabled` to be `true`)        | `false`                |
-| `metrics.serviceMonitor.namespace`                  | Namespace in which Prometheus is running                                                                     | `""`                   |
-| `metrics.serviceMonitor.labels`                     | Extra labels for the ServiceMonitor                                                                          | `{}`                   |
-| `metrics.serviceMonitor.jobLabel`                   | The name of the label on the target service to use as the job name in Prometheus                             | `""`                   |
-| `metrics.serviceMonitor.interval`                   | How frequently to scrape metrics                                                                             | `""`                   |
-| `metrics.serviceMonitor.scrapeTimeout`              | Timeout after which the scrape is ended                                                                      | `""`                   |
-| `metrics.serviceMonitor.metricRelabelings`          | Specify additional relabeling of metrics                                                                     | `[]`                   |
-| `metrics.serviceMonitor.relabelings`                | Specify general relabeling                                                                                   | `[]`                   |
-| `metrics.serviceMonitor.selector`                   | Prometheus instance selector labels                                                                          | `{}`                   |
+| Name                                                  | Description                                                                                                                                                                                                                        | Value                          |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| `metrics.jmx.enabled`                                 | Whether or not to expose JMX metrics to Prometheus                                                                                                                                                                                 | `false`                        |
+| `metrics.jmx.image.registry`                          | JMX exporter image registry                                                                                                                                                                                                        | `REGISTRY_NAME`                |
+| `metrics.jmx.image.repository`                        | JMX exporter image repository                                                                                                                                                                                                      | `REPOSITORY_NAME/jmx-exporter` |
+| `metrics.jmx.image.digest`                            | JMX exporter image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag                                                                                                                       | `""`                           |
+| `metrics.jmx.image.pullPolicy`                        | JMX exporter image pull policy                                                                                                                                                                                                     | `IfNotPresent`                 |
+| `metrics.jmx.image.pullSecrets`                       | Specify docker-registry secret names as an array                                                                                                                                                                                   | `[]`                           |
+| `metrics.jmx.containerPorts.metrics`                  | JMX Exporter metrics container port                                                                                                                                                                                                | `10445`                        |
+| `metrics.jmx.resourcesPreset`                         | Set container resources according to one common preset (allowed values: none, nano, small, medium, large, xlarge, 2xlarge). This is ignored if metrics.jmx.resources is set (metrics.jmx.resources is recommended for production). | `none`                         |
+| `metrics.jmx.resources`                               | Set container requests and limits for different resources like CPU or memory (essential for production workloads)                                                                                                                  | `{}`                           |
+| `metrics.jmx.containerSecurityContext.enabled`        | Enabled JMX Exporter containers' Security Context                                                                                                                                                                                  | `true`                         |
+| `metrics.jmx.containerSecurityContext.seLinuxOptions` | Set SELinux options in container                                                                                                                                                                                                   | `nil`                          |
+| `metrics.jmx.containerSecurityContext.runAsUser`      | Set JMX Exporter containers' Security Context runAsUser                                                                                                                                                                            | `1001`                         |
+| `metrics.jmx.containerSecurityContext.runAsNonRoot`   | Set JMX Exporter containers' Security Context runAsNonRoot                                                                                                                                                                         | `true`                         |
+| `metrics.jmx.whitelistObjectNames`                    | Allows setting which JMX objects you want to expose to via JMX stats to JMX Exporter                                                                                                                                               | `[]`                           |
+| `metrics.jmx.configuration`                           | Configuration file for JMX exporter                                                                                                                                                                                                | `""`                           |
+| `metrics.jmx.service.ports.metrics`                   | JMX Exporter Prometheus port                                                                                                                                                                                                       | `10443`                        |
+| `metrics.jmx.service.annotations`                     | Annotations for the JMX Exporter Prometheus metrics service                                                                                                                                                                        | `{}`                           |
+| `metrics.serviceMonitor.enabled`                      | if `true`, creates a Prometheus Operator ServiceMonitor (requires `metrics.jmx.enabled` to be `true`)                                                                                                                              | `false`                        |
+| `metrics.serviceMonitor.namespace`                    | Namespace in which Prometheus is running                                                                                                                                                                                           | `""`                           |
+| `metrics.serviceMonitor.labels`                       | Extra labels for the ServiceMonitor                                                                                                                                                                                                | `{}`                           |
+| `metrics.serviceMonitor.jobLabel`                     | The name of the label on the target service to use as the job name in Prometheus                                                                                                                                                   | `""`                           |
+| `metrics.serviceMonitor.interval`                     | How frequently to scrape metrics                                                                                                                                                                                                   | `""`                           |
+| `metrics.serviceMonitor.scrapeTimeout`                | Timeout after which the scrape is ended                                                                                                                                                                                            | `""`                           |
+| `metrics.serviceMonitor.metricRelabelings`            | Specify additional relabeling of metrics                                                                                                                                                                                           | `[]`                           |
+| `metrics.serviceMonitor.relabelings`                  | Specify general relabeling                                                                                                                                                                                                         | `[]`                           |
+| `metrics.serviceMonitor.selector`                     | Prometheus instance selector labels                                                                                                                                                                                                | `{}`                           |
 
 ### PostgreSQL subchart settings
 
@@ -368,8 +568,10 @@ helm install my-release \
   --set sonarqubeUsername=admin \
   --set sonarqubePassword=password \
   --set postgresql.auth.password=secretpassword \
-    oci://registry-1.docker.io/bitnamicharts/sonarqube
+    oci://REGISTRY_NAME/REPOSITORY_NAME/sonarqube
 ```
+
+> Note: You need to substitute the placeholders `REGISTRY_NAME` and `REPOSITORY_NAME` with a reference to your Helm chart registry and repository. For example, in the case of Bitnami, you need to use `REGISTRY_NAME=registry-1.docker.io` and `REPOSITORY_NAME=bitnamicharts`.
 
 The above command sets the sonarqube administrator account username and password to `admin` and `password` respectively. Additionally, it sets the PostgreSQL `postgres` user password to `secretpassword`.
 
@@ -378,78 +580,11 @@ The above command sets the sonarqube administrator account username and password
 Alternatively, a YAML file that specifies the values for the above parameters can be provided while installing the chart. For example,
 
 ```console
-helm install my-release -f values.yaml oci://registry-1.docker.io/bitnamicharts/sonarqube
+helm install my-release -f values.yaml oci://REGISTRY_NAME/REPOSITORY_NAME/sonarqube
 ```
 
-> **Tip**: You can use the default [values.yaml](values.yaml)
-
-## Configuration and installation details
-
-### [Rolling VS Immutable tags](https://docs.bitnami.com/containers/how-to/understand-rolling-tags-containers/)
-
-It is strongly recommended to use immutable tags in a production environment. This ensures your deployment does not change automatically if the same tag is updated with a different image.
-
-Bitnami will release a new chart updating its containers if a new version of the main container, significant changes, or critical vulnerabilities exist.
-
-### Default kernel settings
-
-Currently, SonarQube&trade; requires some changes in the kernel of the host machine to work as expected. If those values are not set in the underlying operating system, the SonarQube&trade; containers fail to boot with ERROR messages. More information about these requirements can be found in the links below:
-
-- [File Descriptor requirements](https://www.elastic.co/guide/en/elasticsearch/reference/current/file-descriptors.html)
-- [Virtual memory requirements](https://www.elastic.co/guide/en/elasticsearch/reference/current/vm-max-map-count.html)
-
-This chart uses a **privileged** initContainer to change those settings in the Kernel by running: `sysctl -w vm.max_map_count=262144 && sysctl -w fs.file-max=65536`. You can disable the initContainer using the `sysctl.enabled=false` parameter.
-
-### External database support
-
-You may want to have SonarQube&trade; connect to an external database rather than installing one inside your cluster. Typical reasons for this are to use a managed database service, or to share a common database server for all your applications. To achieve this, set the `postgresql.enabled` parameter to `false` and specify the credentials for the external database using the `externalDatabase.*` parameters.
-
-Refer to the [chart documentation on using an external database](https://docs.bitnami.com/kubernetes/apps/sonarqube/configuration/use-external-database) for more details and an example.
-
-### Ingress
-
-This chart provides support for Ingress resources. If you have an ingress controller installed on your cluster, such as [nginx-ingress-controller](https://github.com/bitnami/charts/tree/main/bitnami/nginx-ingress-controller) or [contour](https://github.com/bitnami/charts/tree/main/bitnami/contour) you can utilize the ingress controller to serve your application.
-
-To enable Ingress integration, set `ingress.enabled` to `true`. The `ingress.hostname` property can be used to set the host name. The `ingress.tls` parameter can be used to add the TLS configuration for this host. It is also possible to have more than one host, with a separate TLS configuration for each host. [Learn more about configuring and using Ingress](https://docs.bitnami.com/kubernetes/apps/sonarqube/configuration/configure-ingress/).
-
-### TLS secrets
-
-The chart also facilitates the creation of TLS secrets for use with the Ingress controller, with different options for certificate management. [Learn more about TLS secrets](https://docs.bitnami.com/kubernetes/apps/sonarqube/administration/enable-tls-ingress/).
-
-### Additional environment variables
-
-In case you want to add extra environment variables (useful for advanced operations like custom init scripts), you can use the `extraEnvVars` property.
-
-```yaml
-sonarqube:
-  extraEnvVars:
-    - name: LOG_LEVEL
-      value: error
-```
-
-Alternatively, you can use a ConfigMap or a Secret with the environment variables. To do so, use the `extraEnvVarsCM` or the `extraEnvVarsSecret` values.
-
-### Sidecars
-
-If additional containers are needed in the same pod as SonarQube&trade; (such as additional metrics or logging exporters), they can be defined using the `sidecars` parameter. If these sidecars export extra ports, extra port definitions can be added using the `service.extraPorts` parameter. [Learn more about configuring and using sidecar containers](https://docs.bitnami.com/kubernetes/apps/sonarqube/configuration/configure-sidecar-init-containers/).
-
-### Pod affinity
-
-This chart allows you to set your custom affinity using the `affinity` parameter. Find more information about Pod affinity in the [kubernetes documentation](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity).
-
-As an alternative, use one of the preset configurations for pod affinity, pod anti-affinity, and node affinity available at the [bitnami/common](https://github.com/bitnami/charts/tree/main/bitnami/common#affinities) chart. To do so, set the `podAffinityPreset`, `podAntiAffinityPreset`, or `nodeAffinityPreset` parameters.
-
-## Persistence
-
-The [Bitnami SonarQube&trade;](https://github.com/bitnami/containers/tree/main/bitnami/sonarqube) image stores the SonarQube&trade; data and configurations at the `/bitnami/sonarqube` path of the container. Persistent Volume Claims are used to keep the data across deployments.
-
-### Adjust permissions of persistent volume mountpoint
-
-As the image run as non-root by default, it is necessary to adjust the ownership of the persistent volume so that the container can write data into it.
-
-By default, the chart is configured to use Kubernetes Security Context to automatically change the ownership of the volume. However, this feature does not work in all Kubernetes distributions.
-
-As an alternative, this chart supports using an initContainer to change the ownership of the volume before mounting it in the final destination. You can enable this initContainer by setting `volumePermissions.enabled` to `true`.
+> Note: You need to substitute the placeholders `REGISTRY_NAME` and `REPOSITORY_NAME` with a reference to your Helm chart registry and repository. For example, in the case of Bitnami, you need to use `REGISTRY_NAME=registry-1.docker.io` and `REPOSITORY_NAME=bitnamicharts`.
+> **Tip**: You can use the default [values.yaml](https://github.com/bitnami/charts/tree/main/bitnami/sonarqube/values.yaml)
 
 ## Troubleshooting
 
@@ -457,17 +592,57 @@ Find more information about how to deal with common errors related to Bitnami's 
 
 ## Upgrading
 
+### To 4.0.0
+
+This major updates the PostgreSQL subchart to its newest major, 13.0.0. [Here](https://github.com/bitnami/charts/tree/master/bitnami/postgresql#to-1300) you can find more information about the changes introduced in that version.
+
 ### To 2.0.0
 
 This major updates the PostgreSQL subchart to its newest major, 12.0.0. [Here](https://github.com/bitnami/charts/tree/master/bitnami/postgresql#to-1200) you can find more information about the changes introduced in that version.
 
-### To any previous version
+### To 1.0.0
 
-Refer to the [chart documentation for more information about how to upgrade from previous releases](https://docs.bitnami.com/kubernetes/apps/sonarqube/administration/upgrade/).
+This major release updates the PostgreSQL subchart to its newest major *11.x.x*, which contain several changes in the supported values (check the [upgrade notes](https://github.com/bitnami/charts/tree/master/bitnami/postgresql#to-1100) to obtain more information).
+
+#### Upgrading Instructions
+
+To upgrade to *1.0.0* from *0.x*, it should be done reusing the PVC(s) used to hold the data on your previous release. To do so, follow the instructions below (the following example assumes that the release name is *sonarqube* and the release namespace *default*):
+
+1. Obtain the credentials and the names of the PVCs used to hold the data on your current release:
+
+```console
+export SONARQUBE_PASSWORD=$(kubectl get secret --namespace default sonarqube -o jsonpath="{.data.sonarqube-password}" | base64 --decode)
+export POSTGRESQL_PASSWORD=$(kubectl get secret --namespace default sonarqube-postgresql -o jsonpath="{.data.postgresql-password}" | base64 --decode)
+export POSTGRESQL_PVC=$(kubectl get pvc -l app.kubernetes.io/instance=sonarqube,app.kubernetes.io/name=postgresql,role=primary -o jsonpath="{.items[0].metadata.name}")
+```
+
+1. Delete the PostgreSQL statefulset (notice the option *--cascade=false*) and secret:
+
+```console
+kubectl delete statefulsets.apps --cascade=false sonarqube-postgresql
+kubectl delete secret sonarqube-postgresql --namespace default
+```
+
+1. Upgrade your release using the same PostgreSQL version:
+
+```console
+CURRENT_PG_VERSION=$(kubectl exec sonarqube-postgresql-0 -- bash -c 'echo $BITNAMI_IMAGE_VERSION')
+helm upgrade sonarqube bitnami/sonarqube \
+  --set sonarqubePassword=$SONARQUBE_PASSWORD \
+  --set postgresql.image.tag=$CURRENT_PG_VERSION \
+  --set postgresql.auth.password=$POSTGRESQL_PASSWORD \
+  --set postgresql.persistence.existingClaim=$POSTGRESQL_PVC
+```
+
+1. Delete the existing PostgreSQL pods and the new statefulset will create a new one:
+
+```console
+kubectl delete pod sonarqube-postgresql-0
+```
 
 ## License
 
-Copyright &copy; 2023 Bitnami
+Copyright &copy; 2024 Broadcom. The term "Broadcom" refers to Broadcom Inc. and/or its subsidiaries.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

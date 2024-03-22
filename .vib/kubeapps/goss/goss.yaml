@@ -1,3 +1,6 @@
+# Copyright VMware, Inc.
+# SPDX-License-Identifier: APACHE-2.0
+
 http:
   http://kubeapps-internal-kubeappsapis:{{ .Vars.kubeappsapis.service.ports.http }}/core/plugins/v1alpha1/configured-plugins:
     status: 200
@@ -8,13 +11,13 @@ file:
     filetype: symlink
     exists: true
     mode: "0777"
-    contains:
+    contents:
       - /timeoutSeconds.*{{ .Vars.kubeappsapis.pluginConfig.core.packages.v1alpha1.timeoutSeconds }}/
   /config/clusters.conf:
     filetype: symlink
     exists: true
     mode: "0777"
-    contains:
+    contents:
     {{ range .Vars.clusters }}
       - /domain.*{{ .domain }}/
       - /name.*{{ .name }}/

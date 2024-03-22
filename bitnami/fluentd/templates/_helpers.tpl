@@ -1,3 +1,8 @@
+{{/*
+Copyright VMware, Inc.
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
 {{/* vim: set filetype=mustache: */}}
 
 {{/*
@@ -23,7 +28,7 @@ Return the proper Fluentd image name
 Return the proper Docker Image Registry Secret Names
 */}}
 {{- define "fluentd.imagePullSecrets" -}}
-{{- include "common.images.pullSecrets" (dict "images" (list .Values.image) "global" .Values.global) -}}
+{{- include "common.images.renderPullSecrets" (dict "images" (list .Values.image) "context" $) -}}
 {{- end -}}
 
 {{/*
@@ -52,7 +57,7 @@ Create the name of the aggregator service account to use
 {{- define "fluentd.checkRollingTags" -}}
 {{- if and (contains "bitnami/" .Values.image.repository) (not (.Values.image.tag | toString | regexFind "-r\\d+$|sha256:")) }}
 WARNING: Rolling tag detected ({{ .Values.image.repository }}:{{ .Values.image.tag }}), please note that it is strongly recommended to avoid using rolling tags in a production environment.
-+info https://docs.bitnami.com/containers/how-to/understand-rolling-tags-containers/
++info https://docs.bitnami.com/tutorials/understand-rolling-tags-containers
 {{- end }}
 {{- end -}}
 
@@ -198,4 +203,32 @@ Get the initialization aggregator scripts volume name.
 */}}
 {{- define "fluentd.aggregator.initScripts" -}}
 {{- printf "%s-aggregator-init-scripts" (include "common.names.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{/*
+Get the initialization forwarder scripts ConfigMap name.
+*/}}
+{{- define "fluentd.forwarder.initScriptsCM" -}}
+{{- printf "%s" .Values.forwarder.initScriptsCM -}}
+{{- end -}}
+
+{{/*
+Get the initialization aggregator scripts ConfigMap name.
+*/}}
+{{- define "fluentd.aggregator.initScriptsCM" -}}
+{{- printf "%s" .Values.aggregator.initScriptsCM -}}
+{{- end -}}
+
+{{/*
+Get the initialization forwarder scripts Secret name.
+*/}}
+{{- define "fluentd.forwarder.initScriptsSecret" -}}
+{{- printf "%s" .Values.forwarder.initScriptsSecret -}}
+{{- end -}}
+
+{{/*
+Get the initialization aggregator scripts Secret name.
+*/}}
+{{- define "fluentd.aggregator.initScriptsSecret" -}}
+{{- printf "%s" .Values.aggregator.initScriptsSecret -}}
 {{- end -}}

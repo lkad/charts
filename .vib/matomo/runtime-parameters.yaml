@@ -6,3 +6,11 @@ service:
   type: LoadBalancer
   ports:
     http: 80
+readinessProbe:
+  initialDelaySeconds: 90
+cronjobs:
+  archive:
+    enabled: false
+  taskScheduler:
+    enabled: false
+

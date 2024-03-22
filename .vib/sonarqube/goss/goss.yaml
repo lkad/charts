@@ -1,3 +1,6 @@
+# Copyright VMware, Inc.
+# SPDX-License-Identifier: APACHE-2.0
+
 file:
   /bitnami/sonarqube:
     exists: true
@@ -7,7 +10,7 @@ file:
   /opt/bitnami/sonarqube/conf/sonar.properties:
     exists: true
     filetype: file
-    contains:
+    contents:
      - /web.*port.*{{ .Vars.containerPorts.http }}/
      - /search.*port.*{{ .Vars.containerPorts.elastic }}/
      - /postgresql.*{{ .Vars.postgresql.service.ports.postgresql }}/{{ .Vars.postgresql.auth.database }}/
@@ -21,7 +24,7 @@ command:
     # or the one randomly defined by openshift (larger values). Otherwise, the chart is still using the default value.
     exec: if [ $(id -u) -lt {{ $uid }} ] || [ $(id -G | awk '{print $2}') -lt {{ $gid }} ]; then exit 1; fi
     exit-status: 0
-  {{ if .Vars.serviceAccount.automountServiceAccountToken }}
+  {{ if .Vars.automountServiceAccountToken }}
   check-sa:
     exec: cat /var/run/secrets/kubernetes.io/serviceaccount/token | cut -d '.' -f 2 | xargs -I '{}' echo '{}====' | fold -w 4 | sed '$ d' | tr -d '\n' | base64 -d
     exit-status: 0

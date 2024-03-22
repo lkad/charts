@@ -1,3 +1,8 @@
+{{/*
+Copyright VMware, Inc.
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
 {{/* vim: set filetype=mustache: */}}
 {{/*
 Expand the name of the chart.
@@ -80,7 +85,7 @@ Return the proper image name (for the TLS Certs image)
 Return the proper Docker Image Registry Secret Names
 */}}
 {{- define "mongodb.imagePullSecrets" -}}
-{{- include "common.images.pullSecrets" (dict "images" (list .Values.image .Values.metrics.image .Values.volumePermissions.image .Values.tls.image) "global" .Values.global) -}}
+{{- include "common.images.renderPullSecrets" (dict "images" (list .Values.image .Values.metrics.image .Values.volumePermissions.image .Values.tls.image) "context" $) -}}
 {{- end -}}
 
 {{/*
@@ -420,13 +425,19 @@ mongodb: tls.hidden.existingSecrets
 Validate values of MongoDB&reg; exporter URI string - auth.enabled and/or tls.enabled must be enabled or it defaults
 */}}
 {{- define "mongodb.mongodb_exporter.uri" -}}
-    {{- $uriTlsArgs := ternary "tls=true&tlsCertificateKeyFile=/certs/mongodb.pem&tlsCAFile=/certs/mongodb-ca-cert" "" .Values.tls.enabled -}}
-    {{- if .Values.metrics.username }}
+    {{- $tlsEnabled := .Values.tls.enabled -}}
+    {{- $mTlsEnabled := and $tlsEnabled .Values.tls.mTLS.enabled -}}
+    {{- $tlsArgs := "" -}}
+    {{- if $tlsEnabled -}}
+        {{- $tlsCertKeyFile := ternary "&tlsCertificateKeyFile=/certs/mongodb.pem" "" $mTlsEnabled -}}
+        {{- $tlsArgs = printf "tls=true%s&tlsCAFile=/certs/mongodb-ca-cert" $tlsCertKeyFile -}}
+    {{- end -}}
+    {{- if .Values.metrics.username -}}
         {{- $uriAuth := ternary "$(echo $MONGODB_METRICS_USERNAME | sed -r \"s/@/%40/g;s/:/%3A/g\"):$(echo $MONGODB_METRICS_PASSWORD | sed -r \"s/@/%40/g;s/:/%3A/g\")@" "" .Values.auth.enabled -}}
-        {{- printf "mongodb://%slocalhost:%d/admin?%s" $uriAuth (int .Values.containerPorts.mongodb) $uriTlsArgs -}}
+        {{- printf "mongodb://%slocalhost:%d/admin?%s" $uriAuth (int .Values.containerPorts.mongodb) $tlsArgs -}}
     {{- else -}}
         {{- $uriAuth := ternary "$MONGODB_ROOT_USER:$(echo $MONGODB_ROOT_PASSWORD | sed -r \"s/@/%40/g;s/:/%3A/g\")@" "" .Values.auth.enabled -}}
-        {{- printf "mongodb://%slocalhost:%d/admin?%s" $uriAuth (int .Values.containerPorts.mongodb) $uriTlsArgs -}}
+        {{- printf "mongodb://%slocalhost:%d/admin?%s" $uriAuth (int .Values.containerPorts.mongodb) $tlsArgs -}}
     {{- end -}}
 {{- end -}}
 
@@ -473,4 +484,31 @@ Return true if certificates must be auto generated
 {{- if and $standalone $replicaset $arbiter $hidden -}}
     {{- true -}}
 {{- end -}}
+{{- end -}}
+
+{{/*
+Generate argument list for mongodb-exporter
+reference: https://github.com/percona/mongodb_exporter/blob/main/REFERENCE.md
+*/}}
+{{- define "mongodb.exporterArgs" -}}
+{{- with .Values.metrics.collector -}}
+{{- ternary " --collect-all" "" .all -}}
+{{- ternary " --collector.diagnosticdata" "" .diagnosticdata -}}
+{{- ternary " --collector.replicasetstatus" "" .replicasetstatus -}}
+{{- ternary " --collector.dbstats" "" .dbstats -}}
+{{- ternary " --collector.topmetrics" "" .topmetrics -}}
+{{- ternary " --collector.indexstats" "" .indexstats -}}
+{{- ternary " --collector.collstats" "" .collstats -}}
+{{- if .collstatsColls -}}
+{{- " --mongodb.collstats-colls=" -}}
+{{- join "," .collstatsColls -}}
+{{- end -}}
+{{- if .indexstatsColls -}}
+{{- " --mongodb.indexstats-colls=" -}}
+{{- join "," .indexstatsColls -}}
+{{- end -}}
+{{- $limitArg := print " --collector.collstats-limit=" .collstatsLimit -}}
+{{- ne (print .collstatsLimit) "0" | ternary $limitArg "" -}}
+{{- end -}}
+{{- ternary " --compatible-mode" "" .Values.metrics.compatibleMode -}}
 {{- end -}}

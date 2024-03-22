@@ -1,3 +1,8 @@
+/*
+ * Copyright VMware, Inc.
+ * SPDX-License-Identifier: APACHE-2.0
+ */
+
 const COMMAND_DELAY = 2000;
 
 for (const command of ['click']) {
@@ -17,8 +22,8 @@ Cypress.Commands.add(
   (username = Cypress.env('username'), password = Cypress.env('password')) => {
     cy.clearCookies();
     cy.visit('/login');
-    cy.get('[aria-label*="Username"]').type(username);
-    cy.get('[aria-label*="Password"]').type(password);
+    cy.get('input[name="user"]').type(username);
+    cy.get('input[name="password"]').type(password);
     cy.contains('Log in').click();
     cy.contains('Home');
   }

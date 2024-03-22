@@ -1,3 +1,6 @@
+# Copyright VMware, Inc.
+# SPDX-License-Identifier: APACHE-2.0
+
 ## @section Global parameters
 ## Global Docker image parameters
 ## Please, note that this will override the image parameters, including dependencies, configured to use the global value
@@ -16,7 +19,15 @@ global:
   ##
   imagePullSecrets: []
   storageClass: ""
-
+  ## Compatibility adaptations for Kubernetes platforms
+  ##
+  compatibility:
+    ## Compatibility adaptations for Openshift
+    ##
+    openshift:
+      ## @param global.compatibility.openshift.adaptSecurityContext Adapt the securityContext sections of the deployment to make them compatible with Openshift restricted-v2 SCC: remove runAsUser, runAsGroup and fsGroup and let the platform use their allowed default IDs. Possible values: auto (apply if the detected running cluster is Openshift), force (perform the adaptation always), disabled (do not perform adaptation)
+      ##
+      adaptSecurityContext: auto
 ## @section Common parameters
 ##
 
@@ -49,15 +60,14 @@ diagnosticMode:
   ##
   args:
     - infinity
-
 ## @section Fluent Bit parameters
 ##
 
 ## Bitnami Fluent Bit image
 ## ref: https://hub.docker.com/r/bitnami/fluent-bit/tags/
-## @param image.registry Fluent Bit image registry
-## @param image.repository Fluent Bit image repository
-## @param image.tag Fluent Bit image tag (immutable tags are recommended)
+## @param image.registry [default: REGISTRY_NAME] Fluent Bit image registry
+## @param image.repository [default: REPOSITORY_NAME/fluent-bit] Fluent Bit image repository
+## @skip image.tag Fluent Bit image tag (immutable tags are recommended)
 ## @param image.digest Fluent Bit image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag
 ## @param image.pullPolicy image pull policy
 ## @param image.pullSecrets Fluent Bit image pull secrets
@@ -66,11 +76,11 @@ diagnosticMode:
 image:
   registry: docker.io
   repository: bitnami/fluent-bit
-  tag: 2.1.2-debian-11-r6
+  tag: 2.2.2-debian-12-r7
   digest: ""
   ## Specify a imagePullPolicy
   ## Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
-  ## ref: https://kubernetes.io/docs/user-guide/images/#pre-pulling-images
+  ## ref: https://kubernetes.io/docs/concepts/containers/images/#pre-pulled-images
   ##
   pullPolicy: IfNotPresent
   ## Optionally specify an array of imagePullSecrets.
@@ -84,7 +94,6 @@ image:
   ## Enable debug mode
   ##
   debug: false
-
 ## @section Fluent Bit daemonset configuration
 ## Running as daemonset eases kubernetes pod monitoring and ensures its integrity
 ## If daemonset is enabled, Fluent Bit deployment will be disabled
@@ -96,14 +105,16 @@ daemonset:
   ## Pod security context
   ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
   ## @param daemonset.podSecurityContext.enabled Enable security context for daemonset pods
-  ## @param daemonset.podSecurityContext.runAsUser User ID for daemonset containers
-  ## @param daemonset.podSecurityContext.runAsGroup Group ID for daemonset containers
+  ## @param daemonset.podSecurityContext.fsGroupChangePolicy Set filesystem group change policy
+  ## @param daemonset.podSecurityContext.sysctls Set kernel settings using the sysctl interface
+  ## @param daemonset.podSecurityContext.supplementalGroups Set filesystem extra groups
   ## @param daemonset.podSecurityContext.fsGroup Group ID for daemonset containers filesystem
   ##
   podSecurityContext:
     enabled: true
-    runAsUser: 0
-    runAsGroup: 0
+    fsGroupChangePolicy: Always
+    sysctls: []
+    supplementalGroups: []
     fsGroup: 0
   ## Pod host paths
   ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
@@ -143,6 +154,9 @@ extraEnvVarsSecret: ""
 ## @param existingConfigMap Name of an existing ConfigMap with the Fluent Bit config file
 ##
 existingConfigMap: ""
+## @param automountServiceAccountToken Mount Service Account token in pod
+##
+automountServiceAccountToken: true
 ## @param hostAliases Deployment pod host aliases
 ## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
 ##
@@ -204,7 +218,7 @@ customStartupProbe: {}
 ##
 customReadinessProbe: {}
 ## Fluent Bit pods' resource requests and limits
-## ref: https://kubernetes.io/docs/user-guide/compute-resources/
+## ref: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
 ## Minimum memory for development is 4GB and 2 CPU cores
 ## Minimum memory for production is 8GB and 4 CPU cores
 ## ref: http://docs.datastax.com/en/archived/fluent-bit/2.0/fluent-bit/architecture/architecturePlanningHardware_c.html
@@ -213,22 +227,21 @@ customReadinessProbe: {}
 ## choice for the user. This also increases chances charts run on environments with little
 ## resources, such as Minikube. If you do want to specify resources, uncomment the following
 ## lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-## @param resources.limits The resources limits for Fluent Bit containers
-## @param resources.requests The requested resources for Fluent Bit containers
+## @param resourcesPreset Set container resources according to one common preset (allowed values: none, nano, small, medium, large, xlarge, 2xlarge). This is ignored if resources is set (resources is recommended for production).
+## More information: https://github.com/bitnami/charts/blob/main/bitnami/common/templates/_resources.tpl#L15
 ##
-resources:
-  ## Example:
-  ## limits:
-  ##    cpu: 2
-  ##    memory: 4Gi
-  ##
-  limits: {}
-  ## Examples:
-  ## requests:
-  ##    cpu: 2
-  ##    memory: 4Gi
-  ##
-  requests: {}
+resourcesPreset: "nano"
+## @param resources Set container requests and limits for different resources like CPU or memory (essential for production workloads)
+## Example:
+## resources:
+##   requests:
+##     cpu: 2
+##     memory: 512Mi
+##   limits:
+##     cpu: 3
+##     memory: 1024Mi
+##
+resources: {}
 ## @param extraVolumeMounts Optionally specify extra list of additional volumeMounts for fluent-bit container
 ##
 extraVolumeMounts: []
@@ -295,6 +308,64 @@ service:
   ##     timeoutSeconds: 300
   ##
   sessionAffinityConfig: {}
+## Network Policies
+## Ref: https://kubernetes.io/docs/concepts/services-networking/network-policies/
+##
+networkPolicy:
+  ## @param networkPolicy.enabled Specifies whether a NetworkPolicy should be created
+  ##
+  enabled: true
+  ## @param networkPolicy.allowExternal Don't require server label for connections
+  ## The Policy model to apply. When set to false, only pods with the correct
+  ## server label will have network access to the ports server is listening
+  ## on. When true, server will accept connections from any source
+  ## (with the correct destination port).
+  ##
+  allowExternal: true
+  ## @param networkPolicy.allowExternalEgress Allow the pod to access any range of port and all destinations.
+  ##
+  allowExternalEgress: true
+  ## @param networkPolicy.kubeAPIServerPorts [array] List of possible endpoints to kube-apiserver (limit to your cluster settings to increase security)
+  ##
+  kubeAPIServerPorts: [443, 6443, 8443]
+  ## @param networkPolicy.extraIngress [array] Add extra ingress rules to the NetworkPolice
+  ## e.g:
+  ## extraIngress:
+  ##   - ports:
+  ##       - port: 1234
+  ##     from:
+  ##       - podSelector:
+  ##           - matchLabels:
+  ##               - role: frontend
+  ##       - podSelector:
+  ##           - matchExpressions:
+  ##               - key: role
+  ##                 operator: In
+  ##                 values:
+  ##                   - frontend
+  extraIngress: []
+  ## @param networkPolicy.extraEgress [array] Add extra ingress rules to the NetworkPolicy
+  ## e.g:
+  ## extraEgress:
+  ##   - ports:
+  ##       - port: 1234
+  ##     to:
+  ##       - podSelector:
+  ##           - matchLabels:
+  ##               - role: frontend
+  ##       - podSelector:
+  ##           - matchExpressions:
+  ##               - key: role
+  ##                 operator: In
+  ##                 values:
+  ##                   - frontend
+  ##
+  extraEgress: []
+  ## @param networkPolicy.ingressNSMatchLabels [object] Labels to match to allow traffic from other namespaces
+  ## @param networkPolicy.ingressNSPodMatchLabels [object] Pod labels to match to allow traffic from other namespaces
+  ##
+  ingressNSMatchLabels: {}
+  ingressNSPodMatchLabels: {}
 ## Fluent Bit serviceAccount parameters
 ##
 serviceAccount:
@@ -309,25 +380,47 @@ serviceAccount:
   annotations: {}
   ## @param serviceAccount.automountServiceAccountToken Automount API credentials for a service account.
   ##
-  automountServiceAccountToken: true
+  automountServiceAccountToken: false
 ## Pod security context
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
 ## @param podSecurityContext.enabled Enabled Fluent Bit pods' Security Context
+## @param podSecurityContext.fsGroupChangePolicy Set filesystem group change policy
+## @param podSecurityContext.sysctls Set kernel settings using the sysctl interface
+## @param podSecurityContext.supplementalGroups Set filesystem extra groups
 ## @param podSecurityContext.fsGroup Set Fluent Bit pod's Security Context fsGroup
 ##
 podSecurityContext:
   enabled: true
+  fsGroupChangePolicy: Always
+  sysctls: []
+  supplementalGroups: []
   fsGroup: 1001
 ## Configure Container Security Context (only main container)
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
 ## @param containerSecurityContext.enabled Enabled Fluent Bit containers' Security Context
-## @param containerSecurityContext.runAsUser Set Fluent Bit container's Security Context runAsUser
-## @param containerSecurityContext.runAsNonRoot Force the container to be run as non root
+## @param containerSecurityContext.seLinuxOptions [object,nullable] Set SELinux options in container
+## @param containerSecurityContext.runAsUser Set Fluent Bit containers' Security Context runAsUser
+## @param containerSecurityContext.runAsGroup Set Fluent Bit containers' Security Context runAsGroup
+## @param containerSecurityContext.runAsNonRoot Set Fluent Bit container's Security Context runAsNonRoot
+## @param containerSecurityContext.readOnlyRootFilesystem Set Fluent Bit container's Security Context runAsNonRoot
+## @param containerSecurityContext.privileged Set primary container's Security Context privileged
+## @param containerSecurityContext.allowPrivilegeEscalation Set primary container's Security Context allowPrivilegeEscalation
+## @param containerSecurityContext.capabilities.drop List of capabilities to be dropped
+## @param containerSecurityContext.seccompProfile.type Set container's Security Context seccomp profile
 ##
 containerSecurityContext:
   enabled: true
+  seLinuxOptions: {}
   runAsUser: 1001
+  runAsGroup: 1001
   runAsNonRoot: true
+  privileged: false
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+  seccompProfile:
+    type: "RuntimeDefault"
 ## @param podAnnotations Additional pod annotations
 ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
 ##
@@ -371,7 +464,7 @@ priorityClassName: ""
 ##
 affinity: {}
 ## @param nodeSelector Node labels for pod assignment
-## ref: https://kubernetes.io/docs/user-guide/node-selection/
+## ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/
 ##
 nodeSelector: {}
 ## @param tolerations Tolerations for pod assignment
@@ -403,7 +496,6 @@ initContainers: []
 ## @param sidecars Add additional sidecar containers to the fluent-bit pods
 ##
 sidecars: []
-
 ## @section Fluent Bit configuration
 ##
 config:
@@ -424,19 +516,14 @@ config:
         HTTP_Server  On
         HTTP_Listen  0.0.0.0
         HTTP_Port    {{ .Values.containerPorts.http }}
+        Parsers_File /opt/bitnami/fluent-bit/conf/parsers.conf
+        Parsers_File /opt/bitnami/fluent-bit/conf/custom_parsers.conf
   ## @param config.inputs [string] Defines the source from where Fluent Bit can collect data
   ## https://docs.fluentbit.io/manual/pipeline/inputs
   ##
   inputs: |
     [INPUT]
         Name cpu
-
-    [INPUT]
-        Name systemd
-        Tag host.*
-        Systemd_Filter _SYSTEMD_UNIT=kubelet.service
-        Read_From_Tail On
-
   ## @param config.filters [string] Set of plugins that can be used to filter, modify, or enrich log data that is processed by Fluent Bit.
   ## https://docs.fluentbit.io/manual/pipeline/filters
   ## Example:
@@ -496,7 +583,6 @@ rbac:
   ##       - list
   ##
   rules: []
-
 ## @section Autoscaling
 ##
 autoscaling:
@@ -550,10 +636,9 @@ autoscaling:
     ## @param autoscaling.hpa.behavior HPA Behavior
     ##
     behavior: {}
-
 ## Configure the ingress resource that allows you to access the
 ## fluent-bit Console. Set up the URL
-## ref: https://kubernetes.io/docs/user-guide/ingress/
+## ref: https://kubernetes.io/docs/concepts/services-networking/ingress/
 ##
 ingress:
   ## @param ingress.enabled Enable ingress controller resource for fluentBit Console
@@ -578,7 +663,7 @@ ingress:
   pathType: ImplementationSpecific
   ## @param ingress.annotations Additional annotations for the Ingress resource. To enable certificate autogeneration, place here your cert-manager annotations.
   ## For a full list of possible ingress annotations, please see
-  ## ref: https://github.com/kubernetes/ingress-nginx/blob/master/docs/user-guide/nginx-configuration/annotations.md
+  ## ref: https://github.com/kubernetes/ingress-nginx/blob/main/docs/user-guide/nginx-configuration/annotations.md
   ## Use this parameter to set the required annotations for cert-manager, see
   ## ref: https://cert-manager.io/docs/usage/ingress/#supported-annotations
   ##
@@ -655,7 +740,6 @@ ingress:
   ##             name: http
   ##
   extraRules: []
-
 ## Fluent Bit Pod Disruption Budget
 ## ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
 ## @param pdb.create Deploy a PodDisruptionBudget object for Fluent Bit deployment
@@ -666,7 +750,6 @@ pdb:
   create: false
   minAvailable: ""
   maxUnavailable: "50%"
-
 ## Prometheus metrics
 ##
 metrics:
@@ -721,7 +804,6 @@ metrics:
     ##   prometheus: my-prometheus
     ##
     selector: {}
-
 ## @param extraDeploy Array of extra objects to deploy with the release
 ##
 extraDeploy: []

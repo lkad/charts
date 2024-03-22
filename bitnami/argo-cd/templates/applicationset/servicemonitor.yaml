@@ -1,17 +1,15 @@
+{{- /*
+Copyright VMware, Inc.
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
 {{- if and .Values.applicationSet.enabled .Values.applicationSet.metrics.enabled .Values.applicationSet.metrics.serviceMonitor.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: {{ include "argocd.applicationSet" . }}
-  {{- if .Values.applicationSet.metrics.serviceMonitor.namespace }}
-  namespace: {{ .Values.applicationSet.metrics.serviceMonitor.namespace | quote }}
-  {{- else }}
-  namespace: {{ .Release.Namespace | quote }}
-  {{- end }}
-  labels: {{- include "common.labels.standard" . | nindent 4 }}
-    {{- if .Values.commonLabels }}
-    {{- include "common.tplvalues.render" (dict "value" .Values.commonLabels "context" $) | nindent 4 }}
-    {{- end }}
+  namespace: {{ default include "common.names.namespace" . .Values.applicationSet.metrics.serviceMonitor.namespace | quote }}
+  labels: {{- include "common.labels.standard" ( dict "customLabels" .Values.commonLabels "context" $ ) | nindent 4 }}
     {{- if .Values.applicationSet.metrics.serviceMonitor.selector }}
     {{- include "common.tplvalues.render" (dict "value" .Values.applicationSet.metrics.serviceMonitor.selector "context" $) | nindent 4 }}
     {{- end }}
@@ -36,14 +34,14 @@ spec:
       metricRelabelings: {{- include "common.tplvalues.render" ( dict "value" .Values.applicationSet.metrics.serviceMonitor.metricRelabelings "context" $) | nindent 8 }}
       {{- end }}
       {{- if .Values.applicationSet.metrics.serviceMonitor.relabelings }}
-      relabelings: {- include "common.tplvalues.render" ( dict "value" .Values.applicationSet.metrics.serviceMonitor.relabelings "context" $) | nindent 8 }}
+      relabelings: {{- include "common.tplvalues.render" ( dict "value" .Values.applicationSet.metrics.serviceMonitor.relabelings "context" $) | nindent 8 }}
       {{- end }}
   namespaceSelector:
     matchNames:
-      - {{ .Release.Namespace }}
+      - {{ include "common.names.namespace" . }}
   selector:
     matchLabels:
-      {{- include "common.labels.matchLabels" . | nindent 6 }}
+    matchLabels: {{- include "common.labels.matchLabels" ( dict "customLabels" .Values.commonLabels "context" $ ) | nindent 6 }}
       app.kubernetes.io/component: metrics
       app.kubernetes.io/part-of: applicationSet
 {{- end }}

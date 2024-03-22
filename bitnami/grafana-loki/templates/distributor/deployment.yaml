@@ -1,15 +1,19 @@
+{{- /*
+Copyright VMware, Inc.
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
 apiVersion: {{ include "common.capabilities.deployment.apiVersion" . }}
 kind: Deployment
 metadata:
   name: {{ template "grafana-loki.distributor.fullname" . }}
   namespace: {{ .Release.Namespace | quote }}
-  labels: {{- include "common.labels.standard" . | nindent 4 }}
+  {{- $versionLabel := dict "app.kubernetes.io/version" ( include "common.images.version" ( dict "imageRoot" .Values.loki.image "chart" .Chart ) ) }}
+  {{- $labels := include "common.tplvalues.merge" ( dict "values" ( list .Values.commonLabels $versionLabel ) "context" . ) }}
+  labels: {{- include "common.labels.standard" ( dict "customLabels" $labels "context" $ ) | nindent 4 }}
     app.kubernetes.io/part-of: grafana-loki
     app.kubernetes.io/component: distributor
     loki-gossip-member: "true"
-    {{- if .Values.commonLabels }}
-    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
-    {{- end }}
   {{- if .Values.commonAnnotations }}
   annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
   {{- end }}
@@ -18,8 +22,9 @@ spec:
   {{- if .Values.distributor.updateStrategy }}
   strategy: {{- toYaml .Values.distributor.updateStrategy | nindent 4 }}
   {{- end }}
+  {{- $podLabels := include "common.tplvalues.merge" ( dict "values" ( list .Values.distributor.podLabels .Values.commonLabels $versionLabel ) "context" . ) }}
   selector:
-    matchLabels: {{- include "common.labels.matchLabels" . | nindent 6 }}
+    matchLabels: {{- include "common.labels.matchLabels" ( dict "customLabels" $podLabels "context" $ ) | nindent 6 }}
       app.kubernetes.io/part-of: grafana-loki
       app.kubernetes.io/component: distributor
       loki-gossip-member: "true"
@@ -30,16 +35,14 @@ spec:
         {{- if .Values.distributor.podAnnotations }}
         {{- include "common.tplvalues.render" (dict "value" .Values.distributor.podAnnotations "context" $) | nindent 8 }}
         {{- end }}
-      labels: {{- include "common.labels.standard" . | nindent 8 }}
+      labels: {{- include "common.labels.standard" ( dict "customLabels" $podLabels "context" $ ) | nindent 8 }}
         app.kubernetes.io/part-of: grafana-loki
         app.kubernetes.io/component: distributor
         loki-gossip-member: "true"
-        {{- if .Values.distributor.podLabels }}
-        {{- include "common.tplvalues.render" (dict "value" .Values.distributor.podLabels "context" $) | nindent 8 }}
-        {{- end }}
     spec:
       serviceAccountName: {{ template "grafana-loki.serviceAccountName" . }}
       {{- include "grafana-loki.imagePullSecrets" . | nindent 6 }}
+      automountServiceAccountToken: {{ .Values.distributor.automountServiceAccountToken }}
       {{- if .Values.distributor.hostAliases }}
       hostAliases: {{- include "common.tplvalues.render" (dict "value" .Values.distributor.hostAliases "context" $) | nindent 8 }}
       {{- end }}
@@ -47,8 +50,8 @@ spec:
       affinity: {{- include "common.tplvalues.render" ( dict "value" .Values.distributor.affinity "context" $) | nindent 8 }}
       {{- else }}
       affinity:
-        podAffinity: {{- include "common.affinities.pods" (dict "type" .Values.distributor.podAffinityPreset "component" "distributor" "context" $) | nindent 10 }}
-        podAntiAffinity: {{- include "common.affinities.pods" (dict "type" .Values.distributor.podAntiAffinityPreset "component" "distributor" "context" $) | nindent 10 }}
+        podAffinity: {{- include "common.affinities.pods" (dict "type" .Values.distributor.podAffinityPreset "component" "distributor" "customLabels" $podLabels "context" $) | nindent 10 }}
+        podAntiAffinity: {{- include "common.affinities.pods" (dict "type" .Values.distributor.podAntiAffinityPreset "component" "distributor" "customLabels" $podLabels "context" $) | nindent 10 }}
         nodeAffinity: {{- include "common.affinities.nodes" (dict "type" .Values.distributor.nodeAffinityPreset.type "key" .Values.distributor.nodeAffinityPreset.key "values" .Values.distributor.nodeAffinityPreset.values) | nindent 10 }}
       {{- end }}
       {{- if .Values.distributor.nodeSelector }}
@@ -67,7 +70,7 @@ spec:
       schedulerName: {{ .Values.distributor.schedulerName }}
       {{- end }}
       {{- if .Values.distributor.podSecurityContext.enabled }}
-      securityContext: {{- omit .Values.distributor.podSecurityContext "enabled" | toYaml | nindent 8 }}
+      securityContext: {{- include "common.compatibility.renderSecurityContext" (dict "secContext" .Values.distributor.podSecurityContext "context" $) | nindent 8 }}
       {{- end }}
       initContainers:
         {{- if .Values.distributor.initContainers }}
@@ -78,7 +81,7 @@ spec:
           image: {{ template "grafana-loki.image" . }}
           imagePullPolicy: {{ .Values.loki.image.pullPolicy }}
           {{- if .Values.distributor.containerSecurityContext.enabled }}
-          securityContext: {{- omit .Values.distributor.containerSecurityContext "enabled" | toYaml | nindent 12 }}
+          securityContext: {{- include "common.compatibility.renderSecurityContext" (dict "secContext" .Values.distributor.containerSecurityContext "context" $) | nindent 12 }}
           {{- end }}
           {{- if .Values.diagnosticMode.enabled }}
           command: {{- include "common.tplvalues.render" (dict "value" .Values.diagnosticMode.command "context" $) | nindent 12 }}
@@ -93,6 +96,9 @@ spec:
           args:
             - -target=distributor
             - -config.file={{ .Values.loki.dataDir }}/conf/loki.yaml
+          {{- if .Values.distributor.extraArgs }}
+          {{- include "common.tplvalues.render" (dict "value" .Values.distributor.extraArgs "context" $) | nindent 12 }}
+          {{- end }}
           {{- end }}
           {{- if .Values.distributor.extraEnvVars }}
           env: {{- include "common.tplvalues.render" (dict "value" .Values.distributor.extraEnvVars "context" $) | nindent 12 }}
@@ -115,6 +121,8 @@ spec:
               name: grpc
           {{- if .Values.distributor.resources }}
           resources: {{- toYaml .Values.distributor.resources | nindent 12 }}
+          {{- else if ne .Values.distributor.resourcesPreset "none" }}
+          resources: {{- include "common.resources.preset" (dict "type" .Values.distributor.resourcesPreset) | nindent 12 }}
           {{- end }}
           {{- if not .Values.diagnosticMode.enabled }}
           {{- if .Values.distributor.customLivenessProbe }}
@@ -145,6 +153,9 @@ spec:
           lifecycle: {{- include "common.tplvalues.render" (dict "value" .Values.distributor.lifecycleHooks "context" $) | nindent 12 }}
           {{- end }}
           volumeMounts:
+            - name: empty-dir
+              mountPath: /tmp
+              subPath: tmp-dir
             - name: loki-config
               mountPath: {{ .Values.loki.dataDir }}/conf/loki.yaml
               subPath: loki.yaml
@@ -155,6 +166,8 @@ spec:
         {{- include "common.tplvalues.render" ( dict "value" .Values.distributor.sidecars "context" $) | nindent 8 }}
         {{- end }}
       volumes:
+        - name: empty-dir
+          emptyDir: {}
         - name: loki-config
           configMap:
             name: {{ template "grafana-loki.loki.configmapName" . }}

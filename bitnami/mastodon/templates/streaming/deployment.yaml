@@ -1,15 +1,17 @@
+{{- /*
+Copyright VMware, Inc.
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
 {{- if and (include "mastodon.web.domain" .) (or .Values.enableS3 .Values.persistence.enabled) }}
 apiVersion: {{ include "common.capabilities.deployment.apiVersion" . }}
 kind: Deployment
 metadata:
   name: {{ template "mastodon.streaming.fullname" . }}
   namespace: {{ include "common.names.namespace" . | quote }}
-  labels: {{- include "common.labels.standard" . | nindent 4 }}
+  labels: {{- include "common.labels.standard" ( dict "customLabels" .Values.commonLabels "context" $ ) | nindent 4 }}
     app.kubernetes.io/part-of: mastodon
     app.kubernetes.io/component: streaming
-    {{- if .Values.commonLabels }}
-    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
-    {{- end }}
   {{- if .Values.commonAnnotations }}
   annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
   {{- end }}
@@ -18,22 +20,21 @@ spec:
   {{- if .Values.streaming.updateStrategy }}
   strategy: {{- toYaml .Values.streaming.updateStrategy | nindent 4 }}
   {{- end }}
+  {{- $podLabels := include "common.tplvalues.merge" ( dict "values" ( list .Values.streaming.podLabels .Values.commonLabels ) "context" . ) }}
   selector:
-    matchLabels: {{- include "common.labels.matchLabels" . | nindent 6 }}
+    matchLabels: {{- include "common.labels.matchLabels" ( dict "customLabels" $podLabels "context" $ ) | nindent 6 }}
       app.kubernetes.io/component: streaming
   template:
     metadata:
       {{- if .Values.streaming.podAnnotations }}
       annotations: {{- include "common.tplvalues.render" (dict "value" .Values.streaming.podAnnotations "context" $) | nindent 8 }}
       {{- end }}
-      labels: {{- include "common.labels.standard" . | nindent 8 }}
+      labels: {{- include "common.labels.standard" ( dict "customLabels" $podLabels "context" $ ) | nindent 8 }}
         app.kubernetes.io/component: streaming
-        {{- if .Values.streaming.podLabels }}
-        {{- include "common.tplvalues.render" (dict "value" .Values.streaming.podLabels "context" $) | nindent 8 }}
-        {{- end }}
     spec:
       serviceAccountName: {{ template "mastodon.serviceAccountName" . }}
       {{- include "mastodon.imagePullSecrets" . | nindent 6 }}
+      automountServiceAccountToken: {{ .Values.streaming.automountServiceAccountToken }}
       {{- if .Values.streaming.hostAliases }}
       hostAliases: {{- include "common.tplvalues.render" (dict "value" .Values.streaming.hostAliases "context" $) | nindent 8 }}
       {{- end }}
@@ -41,8 +42,8 @@ spec:
       affinity: {{- include "common.tplvalues.render" ( dict "value" .Values.streaming.affinity "context" $) | nindent 8 }}
       {{- else }}
       affinity:
-        podAffinity: {{- include "common.affinities.pods" (dict "type" .Values.streaming.podAffinityPreset "component" "streaming" "context" $) | nindent 10 }}
-        podAntiAffinity: {{- include "common.affinities.pods" (dict "type" .Values.streaming.podAntiAffinityPreset "component" "streaming" "context" $) | nindent 10 }}
+        podAffinity: {{- include "common.affinities.pods" (dict "type" .Values.streaming.podAffinityPreset "component" "streaming" "customLabels" $podLabels "context" $) | nindent 10 }}
+        podAntiAffinity: {{- include "common.affinities.pods" (dict "type" .Values.streaming.podAntiAffinityPreset "component" "streaming" "customLabels" $podLabels "context" $) | nindent 10 }}
         nodeAffinity: {{- include "common.affinities.nodes" (dict "type" .Values.streaming.nodeAffinityPreset.type "key" .Values.streaming.nodeAffinityPreset.key "values" .Values.streaming.nodeAffinityPreset.values) | nindent 10 }}
       {{- end }}
       {{- if .Values.streaming.nodeSelector }}
@@ -61,7 +62,7 @@ spec:
       topologySpreadConstraints: {{- include "common.tplvalues.render" (dict "value" .Values.streaming.topologySpreadConstraints "context" .) | nindent 8 }}
       {{- end }}
       {{- if .Values.streaming.podSecurityContext.enabled }}
-      securityContext: {{- omit .Values.streaming.podSecurityContext "enabled" | toYaml | nindent 8 }}
+      securityContext: {{- include "common.compatibility.renderSecurityContext" (dict "secContext" .Values.streaming.podSecurityContext "context" $) | nindent 8 }}
       {{- end }}
       {{- if .Values.streaming.terminationGracePeriodSeconds }}
       terminationGracePeriodSeconds: {{ .Values.streaming.terminationGracePeriodSeconds }}
@@ -79,7 +80,7 @@ spec:
           image: {{ template "mastodon.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- if .Values.streaming.containerSecurityContext.enabled }}
-          securityContext: {{- omit .Values.streaming.containerSecurityContext "enabled" | toYaml | nindent 12 }}
+          securityContext: {{- include "common.compatibility.renderSecurityContext" (dict "secContext" .Values.streaming.containerSecurityContext "context" $) | nindent 12 }}
           {{- end }}
           {{- if .Values.diagnosticMode.enabled }}
           command: {{- include "common.tplvalues.render" (dict "value" .Values.diagnosticMode.command "context" $) | nindent 12 }}
@@ -170,6 +171,8 @@ spec:
             {{- end }}
           {{- if .Values.streaming.resources }}
           resources: {{- toYaml .Values.streaming.resources | nindent 12 }}
+          {{- else if ne .Values.streaming.resourcesPreset "none" }}
+          resources: {{- include "common.resources.preset" (dict "type" .Values.streaming.resourcesPreset) | nindent 12 }}
           {{- end }}
           ports:
             - name: http
@@ -204,6 +207,9 @@ spec:
           lifecycle: {{- include "common.tplvalues.render" (dict "value" .Values.streaming.lifecycleHooks "context" $) | nindent 12 }}
           {{- end }}
           volumeMounts:
+            - name: empty-dir
+              mountPath: /tmp
+              subPath: tmp-dir
           {{- if not .Values.enableS3 }}
             - name: data
               mountPath: {{ .Values.persistence.mountPath }}
@@ -215,6 +221,8 @@ spec:
         {{- include "common.tplvalues.render" (dict "value" .Values.streaming.sidecars "context" $) | nindent 8 }}
         {{- end }}
       volumes:
+          - name: empty-dir
+            emptyDir: {}
         {{- if not .Values.enableS3 }}
           - name: data
             {{- if .Values.persistence.enabled }}
@@ -225,6 +233,6 @@ spec:
             {{- end }}
         {{- end }}
         {{- if .Values.streaming.extraVolumes }}
-        {{- include "common.tplvalues.render" (dict "value" .Values.streaming.extraVolumes "context" $) | nindent 8 }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.streaming.extraVolumes "context" $) | nindent 10 }}
         {{- end }}
 {{- end }}

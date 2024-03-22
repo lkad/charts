@@ -1,13 +1,15 @@
+{{- /*
+Copyright VMware, Inc.
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
 apiVersion: {{ include "common.capabilities.deployment.apiVersion" . }}
 kind: Deployment
 metadata:
   name: {{ template "common.names.fullname" . }}
   namespace: {{ include "common.names.namespace" . | quote }}
-  labels: {{- include "common.labels.standard" . | nindent 4 }}
+  labels: {{- include "common.labels.standard" ( dict "customLabels" .Values.commonLabels "context" $ ) | nindent 4 }}
     app.kubernetes.io/component: client
-    {{- if .Values.commonLabels }}
-    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
-    {{- end }}
   {{- if .Values.commonAnnotations }}
   annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
   {{- end }}
@@ -16,22 +18,21 @@ spec:
   {{- if .Values.client.updateStrategy }}
   strategy: {{- toYaml .Values.client.updateStrategy | nindent 4 }}
   {{- end }}
+  {{- $podLabels := include "common.tplvalues.merge" ( dict "values" ( list .Values.client.podLabels .Values.commonLabels ) "context" . ) }}
   selector:
-    matchLabels: {{- include "common.labels.matchLabels" . | nindent 6 }}
+    matchLabels: {{- include "common.labels.matchLabels" ( dict "customLabels" $podLabels "context" $ ) | nindent 6 }}
       app.kubernetes.io/component: client
   template:
     metadata:
       {{- if .Values.client.podAnnotations }}
       annotations: {{- include "common.tplvalues.render" (dict "value" .Values.client.podAnnotations "context" $) | nindent 8 }}
       {{- end }}
-      labels: {{- include "common.labels.standard" . | nindent 8 }}
+      labels: {{- include "common.labels.standard" ( dict "customLabels" $podLabels "context" $ ) | nindent 8 }}
         app.kubernetes.io/component: client
-        {{- if .Values.client.podLabels }}
-        {{- include "common.tplvalues.render" (dict "value" .Values.client.podLabels "context" $) | nindent 8 }}
-        {{- end }}
     spec:
       serviceAccountName: {{ template "appsmith.serviceAccountName" . }}
       {{- include "appsmith.imagePullSecrets" . | nindent 6 }}
+      automountServiceAccountToken: {{ .Values.client.automountServiceAccountToken }}
       {{- if .Values.client.hostAliases }}
       hostAliases: {{- include "common.tplvalues.render" (dict "value" .Values.client.hostAliases "context" $) | nindent 8 }}
       {{- end }}
@@ -39,8 +40,8 @@ spec:
       affinity: {{- include "common.tplvalues.render" ( dict "value" .Values.client.affinity "context" $) | nindent 8 }}
       {{- else }}
       affinity:
-        podAffinity: {{- include "common.affinities.pods" (dict "type" .Values.client.podAffinityPreset "component" "client" "context" $) | nindent 10 }}
-        podAntiAffinity: {{- include "common.affinities.pods" (dict "type" .Values.client.podAntiAffinityPreset "component" "client" "context" $) | nindent 10 }}
+        podAffinity: {{- include "common.affinities.pods" (dict "type" .Values.client.podAffinityPreset "component" "client" "customLabels" $podLabels "context" $) | nindent 10 }}
+        podAntiAffinity: {{- include "common.affinities.pods" (dict "type" .Values.client.podAntiAffinityPreset "component" "client" "customLabels" $podLabels "context" $) | nindent 10 }}
         nodeAffinity: {{- include "common.affinities.nodes" (dict "type" .Values.client.nodeAffinityPreset.type "key" .Values.client.nodeAffinityPreset.key "values" .Values.client.nodeAffinityPreset.values) | nindent 10 }}
       {{- end }}
       {{- if .Values.client.nodeSelector }}
@@ -59,7 +60,7 @@ spec:
       topologySpreadConstraints: {{- include "common.tplvalues.render" (dict "value" .Values.client.topologySpreadConstraints "context" .) | nindent 8 }}
       {{- end }}
       {{- if .Values.client.podSecurityContext.enabled }}
-      securityContext: {{- omit .Values.client.podSecurityContext "enabled" | toYaml | nindent 8 }}
+      securityContext: {{- include "common.compatibility.renderSecurityContext" (dict "secContext" .Values.client.podSecurityContext "context" $) | nindent 8 }}
       {{- end }}
       {{- if .Values.client.terminationGracePeriodSeconds }}
       terminationGracePeriodSeconds: {{ .Values.client.terminationGracePeriodSeconds }}
@@ -77,7 +78,7 @@ spec:
           image: {{ template "appsmith.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- if .Values.client.containerSecurityContext.enabled }}
-          securityContext: {{- omit .Values.client.containerSecurityContext "enabled" | toYaml | nindent 12 }}
+          securityContext: {{- include "common.compatibility.renderSecurityContext" (dict "secContext" .Values.client.containerSecurityContext "context" $) | nindent 12 }}
           {{- end }}
           {{- if .Values.diagnosticMode.enabled }}
           command: {{- include "common.tplvalues.render" (dict "value" .Values.diagnosticMode.command "context" $) | nindent 12 }}
@@ -118,6 +119,8 @@ spec:
             {{- end }}
           {{- if .Values.client.resources }}
           resources: {{- toYaml .Values.client.resources | nindent 12 }}
+          {{- else if ne .Values.client.resourcesPreset "none" }}
+          resources: {{- include "common.resources.preset" (dict "type" .Values.client.resourcesPreset) | nindent 12 }}
           {{- end }}
           ports:
             - name: http

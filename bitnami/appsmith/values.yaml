@@ -1,3 +1,6 @@
+# Copyright VMware, Inc.
+# SPDX-License-Identifier: APACHE-2.0
+
 ## @section Global parameters
 ## Global Docker image parameters
 ## Please, note that this will override the image parameters, including dependencies, configured to use the global value
@@ -16,7 +19,15 @@ global:
   ##
   imagePullSecrets: []
   storageClass: ""
-
+  ## Compatibility adaptations for Kubernetes platforms
+  ##
+  compatibility:
+    ## Compatibility adaptations for Openshift
+    ##
+    openshift:
+      ## @param global.compatibility.openshift.adaptSecurityContext Adapt the securityContext sections of the deployment to make them compatible with Openshift restricted-v2 SCC: remove runAsUser, runAsGroup and fsGroup and let the platform use their allowed default IDs. Possible values: auto (apply if the detected running cluster is Openshift), force (perform the adaptation always), disabled (do not perform adaptation)
+      ##
+      adaptSecurityContext: disabled
 ## @section Common parameters
 ##
 
@@ -44,7 +55,6 @@ clusterDomain: cluster.local
 ## @param extraDeploy Array of extra objects to deploy with the release
 ##
 extraDeploy: []
-
 ## Enable diagnostic mode in the deployment
 ##
 diagnosticMode:
@@ -59,12 +69,11 @@ diagnosticMode:
   ##
   args:
     - infinity
-
 ## Bitnami Appsmith image
 ## ref: https://hub.docker.com/r/bitnami/appsmith/tags/
-## @param image.registry Appsmith image registry
-## @param image.repository Appsmith image repository
-## @param image.tag Appsmith image tag (immutable tags are recommended)
+## @param image.registry [default: REGISTRY_NAME] Appsmith image registry
+## @param image.repository [default: REPOSITORY_NAME/appsmith] Appsmith image repository
+## @skip image.tag Appsmith image tag (immutable tags are recommended)
 ## @param image.digest Appsmith image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag image tag (immutable tags are recommended)
 ## @param image.pullPolicy Appsmith image pull policy
 ## @param image.pullSecrets Appsmith image pull secrets
@@ -73,11 +82,11 @@ diagnosticMode:
 image:
   registry: docker.io
   repository: bitnami/appsmith
-  tag: 1.9.17-debian-11-r2
+  tag: 1.17.0-debian-12-r5
   digest: ""
   ## Specify a imagePullPolicy
   ## Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
-  ## ref: http://kubernetes.io/docs/user-guide/images/#pre-pulling-images
+  ## ref: http://kubernetes.io/docs/concepts/containers/images/#pre-pulled-images
   ##
   pullPolicy: IfNotPresent
   ## Optionally specify an array of imagePullSecrets.
@@ -91,7 +100,6 @@ image:
   ## Enable debug mode
   ##
   debug: false
-
 ## @section Appsmith Client Parameters
 ##
 ##
@@ -157,40 +165,69 @@ client:
   ##
   customStartupProbe: {}
   ## Appsmith client resource requests and limits
-  ## ref: http://kubernetes.io/docs/user-guide/compute-resources/
-  ## @param client.resources.limits The resources limits for the Appsmith client containers
-  ## @param client.resources.requests The requested resources for the Appsmith client containers
+  ## ref: http://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
+  ## @param client.resourcesPreset Set container resources according to one common preset (allowed values: none, nano, small, medium, large, xlarge, 2xlarge). This is ignored if client.resources is set (client.resources is recommended for production).
+  ## More information: https://github.com/bitnami/charts/blob/main/bitnami/common/templates/_resources.tpl#L15
   ##
-  resources:
-    limits: {}
-    requests: {}
+  resourcesPreset: "none"
+  ## @param client.resources Set container requests and limits for different resources like CPU or memory (essential for production workloads)
+  ## Example:
+  ## resources:
+  ##   requests:
+  ##     cpu: 2
+  ##     memory: 512Mi
+  ##   limits:
+  ##     cpu: 3
+  ##     memory: 1024Mi
+  ##
+  resources: {}
   ## Configure Pods Security Context
   ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
   ## @param client.podSecurityContext.enabled Enabled Appsmith client pods' Security Context
+  ## @param client.podSecurityContext.fsGroupChangePolicy Set filesystem group change policy
+  ## @param client.podSecurityContext.sysctls Set kernel settings using the sysctl interface
+  ## @param client.podSecurityContext.supplementalGroups Set filesystem extra groups
   ## @param client.podSecurityContext.fsGroup Set Appsmith client pod's Security Context fsGroup
   ##
   podSecurityContext:
     enabled: true
+    fsGroupChangePolicy: Always
+    sysctls: []
+    supplementalGroups: []
     fsGroup: 1001
   ## Configure Container Security Context
   ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
   ## @param client.containerSecurityContext.enabled Enabled Appsmith client containers' Security Context
+  ## @param client.containerSecurityContext.seLinuxOptions [object,nullable] Set SELinux options in container
   ## @param client.containerSecurityContext.runAsUser Set Appsmith client containers' Security Context runAsUser
   ## @param client.containerSecurityContext.runAsNonRoot Set Appsmith client containers' Security Context runAsNonRoot
   ## @param client.containerSecurityContext.readOnlyRootFilesystem Set Appsmith client containers' Security Context runAsNonRoot
+  ## @param client.containerSecurityContext.privileged Set client container's Security Context privileged
+  ## @param client.containerSecurityContext.allowPrivilegeEscalation Set client container's Security Context allowPrivilegeEscalation
+  ## @param client.containerSecurityContext.capabilities.drop List of capabilities to be dropped
+  ## @param client.containerSecurityContext.seccompProfile.type Set container's Security Context seccomp profile
   ##
   containerSecurityContext:
     enabled: true
+    seLinuxOptions: null
     runAsUser: 1001
     runAsNonRoot: true
     readOnlyRootFilesystem: false
-
+    privileged: false
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: ["ALL"]
+    seccompProfile:
+      type: "RuntimeDefault"
   ## @param client.command Override default container command (useful when using custom images)
   ##
   command: []
   ## @param client.args Override default container args (useful when using custom images)
   ##
   args: []
+  ## @param client.automountServiceAccountToken Mount Service Account token in pod
+  ##
+  automountServiceAccountToken: false
   ## @param client.hostAliases Appsmith client pods host aliases
   ## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
   ##
@@ -234,7 +271,7 @@ client:
   ##
   affinity: {}
   ## @param client.nodeSelector Node labels for Appsmith client pods assignment
-  ## ref: https://kubernetes.io/docs/user-guide/node-selection/
+  ## ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/
   ##
   nodeSelector: {}
   ## @param client.tolerations Tolerations for Appsmith client pods assignment
@@ -249,7 +286,6 @@ client:
     ## Can be set to RollingUpdate or OnDelete
     ##
     type: RollingUpdate
-
   ## @param client.priorityClassName Appsmith client pods' priorityClassName
   ##
   priorityClassName: ""
@@ -308,7 +344,61 @@ client:
   ##    command: ['sh', '-c', 'echo "hello world"']
   ##
   initContainers: []
-
+  ## @section Appsmith Client Network Policies
+  ## Ref: https://kubernetes.io/docs/concepts/services-networking/network-policies/
+  ##
+  networkPolicy:
+    ## @param client.networkPolicy.enabled Specifies whether a NetworkPolicy should be created
+    ##
+    enabled: false
+    ## @param client.networkPolicy.allowExternal Don't require client label for connections
+    ## The Policy model to apply. When set to false, only pods with the correct
+    ## client label will have network access to the ports AppSmith Client is listening
+    ## on. When true, AppSmith Client will accept connections from any source
+    ## (with the correct destination port).
+    ##
+    allowExternal: true
+    ## @param client.networkPolicy.allowExternalEgress Allow the pod to access any range of port and all destinations.
+    ##
+    allowExternalEgress: true
+    ## @param client.networkPolicy.extraIngress [array] Add extra ingress rules to the NetworkPolice
+    ## e.g:
+    ## extraIngress:
+    ##   - ports:
+    ##       - port: 1234
+    ##     from:
+    ##       - podSelector:
+    ##           - matchLabels:
+    ##               - role: frontend
+    ##       - podSelector:
+    ##           - matchExpressions:
+    ##               - key: role
+    ##                 operator: In
+    ##                 values:
+    ##                   - frontend
+    extraIngress: []
+    ## @param client.networkPolicy.extraEgress [array] Add extra ingress rules to the NetworkPolicy
+    ## e.g:
+    ## extraEgress:
+    ##   - ports:
+    ##       - port: 1234
+    ##     to:
+    ##       - podSelector:
+    ##           - matchLabels:
+    ##               - role: frontend
+    ##       - podSelector:
+    ##           - matchExpressions:
+    ##               - key: role
+    ##                 operator: In
+    ##                 values:
+    ##                   - frontend
+    ##
+    extraEgress: []
+    ## @param client.networkPolicy.ingressNSMatchLabels [object] Labels to match to allow traffic from other namespaces
+    ## @param client.networkPolicy.ingressNSPodMatchLabels [object] Pod labels to match to allow traffic from other namespaces
+    ##
+    ingressNSMatchLabels: {}
+    ingressNSPodMatchLabels: {}
   ## @section Appsmith Client Traffic Exposure Parameters
   ##
   service:
@@ -353,7 +443,7 @@ client:
     extraPorts: []
     ## @param client.service.sessionAffinity Control where client requests go, to the same pod or round-robin
     ## Values: ClientIP or None
-    ## ref: https://kubernetes.io/docs/user-guide/services/
+    ## ref: https://kubernetes.io/docs/concepts/services-networking/service/
     ##
     sessionAffinity: None
     ## @param client.service.sessionAffinityConfig Additional settings for the sessionAffinity
@@ -362,8 +452,7 @@ client:
     ##     timeoutSeconds: 300
     ##
     sessionAffinityConfig: {}
-
-  ## ref: http://kubernetes.io/docs/user-guide/ingress/
+  ## ref: http://kubernetes.io/docs/concepts/services-networking/ingress/
   ##
   ingress:
     ## @param client.ingress.enabled Enable ingress record generation for Appsmith
@@ -466,7 +555,6 @@ client:
     ##             name: http
     ##
     extraRules: []
-
 ## @section Appsmith Backend Parameters
 ##
 ##
@@ -474,7 +562,6 @@ backend:
   ## @param backend.replicaCount Number of Appsmith backend replicas to deploy
   ##
   replicaCount: 1
-
   ## @param backend.adminUser Appsmith admin user
   ##
   adminUser: user
@@ -490,7 +577,6 @@ backend:
   ## @param backend.encryptionPassword Appsmith database encryption password
   ##
   encryptionPassword: ""
-
   ## @param backend.existingSecret Name of a secret containing the admin password, encryption salt and encryption password
   ##
   existingSecret: ""
@@ -503,7 +589,6 @@ backend:
   ## @param backend.existingSecretEncryptionPasswordKey Key inside the existing secret containing the encryption password
   ##
   existingSecretEncryptionPasswordKey: "encryption-password"
-
   ## @param backend.containerPorts.http Appsmith backend HTTP container port
   ##
   containerPorts:
@@ -562,40 +647,69 @@ backend:
   ##
   customStartupProbe: {}
   ## Appsmith backend resource requests and limits
-  ## ref: http://kubernetes.io/docs/user-guide/compute-resources/
-  ## @param backend.resources.limits The resources limits for the Appsmith backend containers
-  ## @param backend.resources.requests The requested resources for the Appsmith backend containers
+  ## ref: http://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
+  ## @param backend.resourcesPreset Set container resources according to one common preset (allowed values: none, nano, small, medium, large, xlarge, 2xlarge). This is ignored if backend.resources is set (backend.resources is recommended for production).
+  ## More information: https://github.com/bitnami/charts/blob/main/bitnami/common/templates/_resources.tpl#L15
   ##
-  resources:
-    limits: {}
-    requests: {}
+  resourcesPreset: "none"
+  ## @param backend.resources Set container requests and limits for different resources like CPU or memory (essential for production workloads)
+  ## Example:
+  ## resources:
+  ##   requests:
+  ##     cpu: 2
+  ##     memory: 512Mi
+  ##   limits:
+  ##     cpu: 3
+  ##     memory: 1024Mi
+  ##
+  resources: {}
   ## Configure Pods Security Context
   ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
   ## @param backend.podSecurityContext.enabled Enabled Appsmith backend pods' Security Context
+  ## @param backend.podSecurityContext.fsGroupChangePolicy Set filesystem group change policy
+  ## @param backend.podSecurityContext.sysctls Set kernel settings using the sysctl interface
+  ## @param backend.podSecurityContext.supplementalGroups Set filesystem extra groups
   ## @param backend.podSecurityContext.fsGroup Set Appsmith backend pod's Security Context fsGroup
   ##
   podSecurityContext:
     enabled: true
+    fsGroupChangePolicy: Always
+    sysctls: []
+    supplementalGroups: []
     fsGroup: 1001
   ## Configure Container Security Context
   ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
   ## @param backend.containerSecurityContext.enabled Enabled Appsmith backend containers' Security Context
+  ## @param backend.containerSecurityContext.seLinuxOptions [object,nullable] Set SELinux options in container
   ## @param backend.containerSecurityContext.runAsUser Set Appsmith backend containers' Security Context runAsUser
   ## @param backend.containerSecurityContext.runAsNonRoot Set Appsmith backend containers' Security Context runAsNonRoot
   ## @param backend.containerSecurityContext.readOnlyRootFilesystem Set Appsmith backend containers' Security Context runAsNonRoot
+  ## @param backend.containerSecurityContext.privileged Set backend container's Security Context privileged
+  ## @param backend.containerSecurityContext.allowPrivilegeEscalation Set backend container's Security Context allowPrivilegeEscalation
+  ## @param backend.containerSecurityContext.capabilities.drop List of capabilities to be dropped
+  ## @param backend.containerSecurityContext.seccompProfile.type Set container's Security Context seccomp profile
   ##
   containerSecurityContext:
     enabled: true
+    seLinuxOptions: null
     runAsUser: 1001
     runAsNonRoot: true
     readOnlyRootFilesystem: false
-
+    privileged: false
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: ["ALL"]
+    seccompProfile:
+      type: "RuntimeDefault"
   ## @param backend.command Override default container command (useful when using custom images)
   ##
   command: []
   ## @param backend.args Override default container args (useful when using custom images)
   ##
   args: []
+  ## @param backend.automountServiceAccountToken Mount Service Account token in pod
+  ##
+  automountServiceAccountToken: false
   ## @param backend.hostAliases Appsmith backend pods host aliases
   ## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
   ##
@@ -639,7 +753,7 @@ backend:
   ##
   affinity: {}
   ## @param backend.nodeSelector Node labels for Appsmith backend pods assignment
-  ## ref: https://kubernetes.io/docs/user-guide/node-selection/
+  ## ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/
   ##
   nodeSelector: {}
   ## @param backend.tolerations Tolerations for Appsmith backend pods assignment
@@ -654,7 +768,6 @@ backend:
     ## Can be set to RollingUpdate or OnDelete
     ##
     type: RollingUpdate
-
   ## @param backend.priorityClassName Appsmith backend pods' priorityClassName
   ##
   priorityClassName: ""
@@ -713,7 +826,61 @@ backend:
   ##    command: ['sh', '-c', 'echo "hello world"']
   ##
   initContainers: []
-
+  ## @section Appsmith Backend Network Policies
+  ## Ref: https://kubernetes.io/docs/concepts/services-networking/network-policies/
+  ##
+  networkPolicy:
+    ## @param backend.networkPolicy.enabled Specifies whether a NetworkPolicy should be created
+    ##
+    enabled: false
+    ## @param backend.networkPolicy.allowExternal Don't require client label for connections
+    ## The Policy model to apply. When set to false, only pods with the correct
+    ## client label will have network access to the ports AppSmith Backend is listening
+    ## on. When true, AppSmith Backend will accept connections from any source
+    ## (with the correct destination port).
+    ##
+    allowExternal: true
+    ## @param backend.networkPolicy.allowExternalEgress Allow the pod to access any range of port and all destinations.
+    ##
+    allowExternalEgress: true
+    ## @param backend.networkPolicy.extraIngress [array] Add extra ingress rules to the NetworkPolic
+    ## e.g:
+    ## extraIngress:
+    ##   - ports:
+    ##       - port: 1234
+    ##     from:
+    ##       - podSelector:
+    ##           - matchLabels:
+    ##               - role: frontend
+    ##       - podSelector:
+    ##           - matchExpressions:
+    ##               - key: role
+    ##                 operator: In
+    ##                 values:
+    ##                   - frontend
+    extraIngress: []
+    ## @param backend.networkPolicy.extraEgress [array] Add extra ingress rules to the NetworkPolicy
+    ## e.g:
+    ## extraEgress:
+    ##   - ports:
+    ##       - port: 1234
+    ##     to:
+    ##       - podSelector:
+    ##           - matchLabels:
+    ##               - role: frontend
+    ##       - podSelector:
+    ##           - matchExpressions:
+    ##               - key: role
+    ##                 operator: In
+    ##                 values:
+    ##                   - frontend
+    ##
+    extraEgress: []
+    ## @param backend.networkPolicy.ingressNSMatchLabels [object] Labels to match to allow traffic from other namespaces
+    ## @param backend.networkPolicy.ingressNSPodMatchLabels [object] Pod labels to match to allow traffic from other namespaces
+    ##
+    ingressNSMatchLabels: {}
+    ingressNSPodMatchLabels: {}
   ## @section Appsmith Backend Traffic Exposure Parameters
   ##
   service:
@@ -758,7 +925,7 @@ backend:
     extraPorts: []
     ## @param backend.service.sessionAffinity Control where backend requests go, to the same pod or round-robin
     ## Values: BackendIP or None
-    ## ref: https://kubernetes.io/docs/user-guide/services/
+    ## ref: https://kubernetes.io/docs/concepts/services-networking/service/
     ##
     sessionAffinity: None
     ## @param backend.service.sessionAffinityConfig Additional settings for the sessionAffinity
@@ -767,12 +934,11 @@ backend:
     ##     timeoutSeconds: 300
     ##
     sessionAffinityConfig: {}
-
   ## @section Backend Persistence Parameters
   ##
 
   ## Enable persistence using Persistent Volume Claims
-  ## ref: https://kubernetes.io/docs/user-guide/persistent-volumes/
+  ## ref: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
   ##
   persistence:
     ## @param backend.persistence.enabled Enable persistence using Persistent Volume Claims
@@ -784,6 +950,9 @@ backend:
     ## @param backend.persistence.subPath The subdirectory of the volume to mount to, useful in dev environments and one PV for multiple services
     ##
     subPath: ""
+    ## @param backend.persistence.gitDataPath The subdirectory in `/mountPath` or `/mountPath/subPath` where git connected apps will store their local git data.
+    ##
+    gitDataPath: ""
     ## @param backend.persistence.storageClass Storage class of backing PVC
     ## If defined, storageClassName: <storageClass>
     ## If set to "-", storageClassName: "", which disables dynamic provisioning
@@ -816,7 +985,6 @@ backend:
     ## @param backend.persistence.dataSource Custom PVC data source
     ##
     dataSource: {}
-
 ## @section Appsmith RTS Parameters
 ##
 ##
@@ -824,7 +992,6 @@ rts:
   ## @param rts.replicaCount Number of Appsmith rts replicas to deploy
   ##
   replicaCount: 1
-
   ## @param rts.containerPorts.http Appsmith rts HTTP container port
   ##
   containerPorts:
@@ -883,40 +1050,69 @@ rts:
   ##
   customStartupProbe: {}
   ## Appsmith rts resource requests and limits
-  ## ref: http://kubernetes.io/docs/user-guide/compute-resources/
-  ## @param rts.resources.limits The resources limits for the Appsmith rts containers
-  ## @param rts.resources.requests The requested resources for the Appsmith rts containers
+  ## ref: http://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
+  ## @param rts.resourcesPreset Set container resources according to one common preset (allowed values: none, nano, small, medium, large, xlarge, 2xlarge). This is ignored if rts.resources is set (rts.resources is recommended for production).
+  ## More information: https://github.com/bitnami/charts/blob/main/bitnami/common/templates/_resources.tpl#L15
   ##
-  resources:
-    limits: {}
-    requests: {}
+  resourcesPreset: "none"
+  ## @param rts.resources Set container requests and limits for different resources like CPU or memory (essential for production workloads)
+  ## Example:
+  ## resources:
+  ##   requests:
+  ##     cpu: 2
+  ##     memory: 512Mi
+  ##   limits:
+  ##     cpu: 3
+  ##     memory: 1024Mi
+  ##
+  resources: {}
   ## Configure Pods Security Context
   ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
   ## @param rts.podSecurityContext.enabled Enabled Appsmith rts pods' Security Context
+  ## @param rts.podSecurityContext.fsGroupChangePolicy Set filesystem group change policy
+  ## @param rts.podSecurityContext.sysctls Set kernel settings using the sysctl interface
+  ## @param rts.podSecurityContext.supplementalGroups Set filesystem extra groups
   ## @param rts.podSecurityContext.fsGroup Set Appsmith rts pod's Security Context fsGroup
   ##
   podSecurityContext:
     enabled: true
+    fsGroupChangePolicy: Always
+    sysctls: []
+    supplementalGroups: []
     fsGroup: 1001
   ## Configure Container Security Context
   ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
   ## @param rts.containerSecurityContext.enabled Enabled Appsmith rts containers' Security Context
+  ## @param rts.containerSecurityContext.seLinuxOptions [object,nullable] Set SELinux options in container
   ## @param rts.containerSecurityContext.runAsUser Set Appsmith rts containers' Security Context runAsUser
   ## @param rts.containerSecurityContext.runAsNonRoot Set Appsmith rts containers' Security Context runAsNonRoot
   ## @param rts.containerSecurityContext.readOnlyRootFilesystem Set Appsmith rts containers' Security Context runAsNonRoot
+  ## @param rts.containerSecurityContext.privileged Set rts container's Security Context privileged
+  ## @param rts.containerSecurityContext.allowPrivilegeEscalation Set rts container's Security Context allowPrivilegeEscalation
+  ## @param rts.containerSecurityContext.capabilities.drop List of capabilities to be dropped
+  ## @param rts.containerSecurityContext.seccompProfile.type Set container's Security Context seccomp profile
   ##
   containerSecurityContext:
     enabled: true
+    seLinuxOptions: null
     runAsUser: 1001
     runAsNonRoot: true
     readOnlyRootFilesystem: false
-
+    privileged: false
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: ["ALL"]
+    seccompProfile:
+      type: "RuntimeDefault"
   ## @param rts.command Override default container command (useful when using custom images)
   ##
   command: []
   ## @param rts.args Override default container args (useful when using custom images)
   ##
   args: []
+  ## @param rts.automountServiceAccountToken Mount Service Account token in pod
+  ##
+  automountServiceAccountToken: false
   ## @param rts.hostAliases Appsmith rts pods host aliases
   ## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
   ##
@@ -960,7 +1156,7 @@ rts:
   ##
   affinity: {}
   ## @param rts.nodeSelector Node labels for Appsmith rts pods assignment
-  ## ref: https://kubernetes.io/docs/user-guide/node-selection/
+  ## ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/
   ##
   nodeSelector: {}
   ## @param rts.tolerations Tolerations for Appsmith rts pods assignment
@@ -975,7 +1171,6 @@ rts:
     ## Can be set to RollingUpdate or OnDelete
     ##
     type: RollingUpdate
-
   ## @param rts.priorityClassName Appsmith rts pods' priorityClassName
   ##
   priorityClassName: ""
@@ -1034,7 +1229,61 @@ rts:
   ##    command: ['sh', '-c', 'echo "hello world"']
   ##
   initContainers: []
-
+  ## @section Appsmith RTS Network Policies
+  ## Ref: https://kubernetes.io/docs/concepts/services-networking/network-policies/
+  ##
+  networkPolicy:
+    ## @param rts.networkPolicy.enabled Specifies whether a NetworkPolicy should be created
+    ##
+    enabled: false
+    ## @param rts.networkPolicy.allowExternal Don't require client label for connections
+    ## The Policy model to apply. When set to false, only pods with the correct
+    ## client label will have network access to the ports AppSmith RTS is listening
+    ## on. When true, AppSmith RTS will accept connections from any source
+    ## (with the correct destination port).
+    ##
+    allowExternal: true
+    ## @param rts.networkPolicy.allowExternalEgress Allow the pod to access any range of port and all destinations.
+    ##
+    allowExternalEgress: true
+    ## @param rts.networkPolicy.extraIngress [array] Add extra ingress rules to the NetworkPolice
+    ## e.g:
+    ## extraIngress:
+    ##   - ports:
+    ##       - port: 1234
+    ##     from:
+    ##       - podSelector:
+    ##           - matchLabels:
+    ##               - role: frontend
+    ##       - podSelector:
+    ##           - matchExpressions:
+    ##               - key: role
+    ##                 operator: In
+    ##                 values:
+    ##                   - frontend
+    extraIngress: []
+    ## @param rts.networkPolicy.extraEgress [array] Add extra ingress rules to the NetworkPolicy
+    ## e.g:
+    ## extraEgress:
+    ##   - ports:
+    ##       - port: 1234
+    ##     to:
+    ##       - podSelector:
+    ##           - matchLabels:
+    ##               - role: frontend
+    ##       - podSelector:
+    ##           - matchExpressions:
+    ##               - key: role
+    ##                 operator: In
+    ##                 values:
+    ##                   - frontend
+    ##
+    extraEgress: []
+    ## @param rts.networkPolicy.ingressNSMatchLabels [object] Labels to match to allow traffic from other namespaces
+    ## @param rts.networkPolicy.ingressNSPodMatchLabels [object] Pod labels to match to allow traffic from other namespaces
+    ##
+    ingressNSMatchLabels: {}
+    ingressNSPodMatchLabels: {}
   ## @section Appsmith RTS Traffic Exposure Parameters
   ##
   service:
@@ -1079,7 +1328,7 @@ rts:
     extraPorts: []
     ## @param rts.service.sessionAffinity Control where rts requests go, to the same pod or round-robin
     ## Values: RTSIP or None
-    ## ref: https://kubernetes.io/docs/user-guide/services/
+    ## ref: https://kubernetes.io/docs/concepts/services-networking/service/
     ##
     sessionAffinity: None
     ## @param rts.service.sessionAffinityConfig Additional settings for the sessionAffinity
@@ -1088,7 +1337,6 @@ rts:
     ##     timeoutSeconds: 300
     ##
     sessionAffinityConfig: {}
-
 ## @section Init Container Parameters
 ##
 
@@ -1100,18 +1348,18 @@ volumePermissions:
   ## @param volumePermissions.enabled Enable init container that changes the owner/group of the PV mount point to `runAsUser:fsGroup`
   ##
   enabled: false
-  ## Bitnami Shell image
-  ## ref: https://hub.docker.com/r/bitnami/bitnami-shell/tags/
-  ## @param volumePermissions.image.registry Bitnami Shell image registry
-  ## @param volumePermissions.image.repository Bitnami Shell image repository
-  ## @param volumePermissions.image.tag Bitnami Shell image tag (immutable tags are recommended)
-  ## @param volumePermissions.image.pullPolicy Bitnami Shell image pull policy
-  ## @param volumePermissions.image.pullSecrets Bitnami Shell image pull secrets
+  ## OS Shell + Utility image
+  ## ref: https://hub.docker.com/r/bitnami/os-shell/tags/
+  ## @param volumePermissions.image.registry [default: REGISTRY_NAME] OS Shell + Utility image registry
+  ## @param volumePermissions.image.repository [default: REPOSITORY_NAME/os-shell] OS Shell + Utility image repository
+  ## @skip volumePermissions.image.tag OS Shell + Utility image tag (immutable tags are recommended)
+  ## @param volumePermissions.image.pullPolicy OS Shell + Utility image pull policy
+  ## @param volumePermissions.image.pullSecrets OS Shell + Utility image pull secrets
   ##
   image:
     registry: docker.io
-    repository: bitnami/bitnami-shell
-    tag: 11-debian-11-r113
+    repository: bitnami/os-shell
+    tag: 12-debian-12-r16
     pullPolicy: IfNotPresent
     ## Optionally specify an array of imagePullSecrets.
     ## Secrets must be manually created in the namespace.
@@ -1122,23 +1370,33 @@ volumePermissions:
     ##
     pullSecrets: []
   ## Init container's resource requests and limits
-  ## ref: http://kubernetes.io/docs/user-guide/compute-resources/
-  ## @param volumePermissions.resources.limits The resources limits for the init container
-  ## @param volumePermissions.resources.requests The requested resources for the init container
+  ## ref: http://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
+  ## @param volumePermissions.resourcesPreset Set container resources according to one common preset (allowed values: none, nano, small, medium, large, xlarge, 2xlarge). This is ignored if volumePermissions.resources is set (volumePermissions.resources is recommended for production).
+  ## More information: https://github.com/bitnami/charts/blob/main/bitnami/common/templates/_resources.tpl#L15
   ##
-  resources:
-    limits: {}
-    requests: {}
+  resourcesPreset: "none"
+  ## @param volumePermissions.resources Set container requests and limits for different resources like CPU or memory (essential for production workloads)
+  ## Example:
+  ## resources:
+  ##   requests:
+  ##     cpu: 2
+  ##     memory: 512Mi
+  ##   limits:
+  ##     cpu: 3
+  ##     memory: 1024Mi
+  ##
+  resources: {}
   ## Init container Container Security Context
   ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
+  ## @param volumePermissions.containerSecurityContext.seLinuxOptions [object,nullable] Set SELinux options in container
   ## @param volumePermissions.containerSecurityContext.runAsUser Set init container's Security Context runAsUser
   ## NOTE: when runAsUser is set to special value "auto", init container will try to chown the
   ##   data folder to auto-determined user&group, using commands: `id -u`:`id -G | cut -d" " -f2`
   ##   "auto" is especially useful for OpenShift which has scc with dynamic user ids (and 0 is not allowed)
   ##
   containerSecurityContext:
+    seLinuxOptions: null
     runAsUser: 0
-
 ## @section Other Parameters
 ##
 
@@ -1157,8 +1415,7 @@ serviceAccount:
   annotations: {}
   ## @param serviceAccount.automountServiceAccountToken Automount service account token for the server service account
   ##
-  automountServiceAccountToken: true
-
+  automountServiceAccountToken: false
 ## @section External MongoDB parameters
 ## All of these values are only used when mongodb.enabled is set to false
 ## @param externalDatabase.hosts Database hosts
@@ -1177,7 +1434,6 @@ externalDatabase:
   password: ""
   existingSecret: ""
   existingSecretPasswordKey: ""
-
 ## @section External Redis parameters
 ## All of these values are only used when redis.enabled is set to false
 ## @param externalRedis.host Redis host
@@ -1192,7 +1448,6 @@ externalRedis:
   password: ""
   existingSecret: ""
   existingSecretPasswordKey: ""
-
 ## @section Redis sub-chart parameters
 ##
 redis:
@@ -1211,7 +1466,6 @@ redis:
     service:
       ports:
         redis: 6379
-
   ## @param redis.auth.enabled Enable Redis auth
   ## @param redis.auth.password Redis password
   ## @param redis.auth.existingSecret Name of a secret containing the Redis password
@@ -1220,7 +1474,6 @@ redis:
     enabled: true
     password: ""
     existingSecret: ""
-
 ## @section MongoDB sub-chart parameters
 ##
 mongodb:

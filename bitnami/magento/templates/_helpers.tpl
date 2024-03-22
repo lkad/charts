@@ -1,3 +1,8 @@
+{{/*
+Copyright VMware, Inc.
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
 {{/* vim: set filetype=mustache: */}}
 
 {{/*
@@ -12,7 +17,7 @@ We append a random number to the string to avoid password validation errors
 Get the user defined password or use a random string
 */}}
 {{- define "magento.password" -}}
-{{- $password := index .Values (printf "%sPassword" .Chart.Name) -}}
+{{- $password := .Values.magentoPassword -}}
 {{- default (include "magento.randomPassword" .) $password -}}
 {{- end -}}
 
@@ -53,9 +58,23 @@ When using Ingress, it will be set to the Ingress hostname.
 {{- if .Values.ingress.enabled }}
 {{- $host := .Values.ingress.hostname | default "" -}}
 {{- default (include "magento.serviceIP" .) $host -}}
-{{- else -}}
-{{- $host := index .Values (printf "%sHost" .Chart.Name) | default "" -}}
+{{- else if .Values.magentoHost -}}
+{{- $host := .Values.magentoHost | default "" -}}
 {{- default (include "magento.serviceIP" .) $host -}}
+{{- else -}}
+{{- $host := .Values.magentoHost | default "" -}}
+{{- default (include "magento.serviceIP" .) $host -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+ Create the name of the service account to use
+ */}}
+{{- define "magento.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create -}}
+    {{ default (include "common.names.fullname" .) .Values.serviceAccount.name }}
+{{- else -}}
+    {{ default "default" .Values.serviceAccount.name }}
 {{- end -}}
 {{- end -}}
 

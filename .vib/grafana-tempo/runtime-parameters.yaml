@@ -1,8 +1,8 @@
 tempo:
   dataDir: /bitnami/grafana-tempo/data
   traces:
-    jaeger:
-      thriftHttp: true
+    otlp:
+      grpc: true
   search:
     enabled: true
   containerPorts:

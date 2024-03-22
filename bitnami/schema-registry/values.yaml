@@ -1,11 +1,13 @@
+# Copyright VMware, Inc.
+# SPDX-License-Identifier: APACHE-2.0
+
 
 ## @section Global parameters
 ## Global Docker image parameters
 ## Please, note that this will override the image parameters, including dependencies, configured to use the global value
-## Current available global Docker image parameters: imageRegistry, imagePullSecrets and storageClass
+## Current available global Docker image parameters: imageRegistry and imagePullSecrets
 ## @param global.imageRegistry Global Docker image registry
 ## @param global.imagePullSecrets Global Docker registry secret names as an array
-## @param global.storageClass Global StorageClass for Persistent Volume(s)
 ##
 global:
   imageRegistry: ""
@@ -14,8 +16,15 @@ global:
   ##   - myRegistryKeySecretName
   ##
   imagePullSecrets: []
-  storageClass: ""
-
+  ## Compatibility adaptations for Kubernetes platforms
+  ##
+  compatibility:
+    ## Compatibility adaptations for Openshift
+    ##
+    openshift:
+      ## @param global.compatibility.openshift.adaptSecurityContext Adapt the securityContext sections of the deployment to make them compatible with Openshift restricted-v2 SCC: remove runAsUser, runAsGroup and fsGroup and let the platform use their allowed default IDs. Possible values: auto (apply if the detected running cluster is Openshift), force (perform the adaptation always), disabled (do not perform adaptation)
+      ##
+      adaptSecurityContext: disabled
 ## @param kubeVersion Override Kubernetes version
 ##
 kubeVersion: ""
@@ -55,13 +64,12 @@ diagnosticMode:
   ##
   args:
     - infinity
-
 ## @section Schema Registry parameters
 ## Bitnami Schema Registry image
 ## ref: https://hub.docker.com/r/bitnami/schema-registry/tags/
-## @param image.registry Schema Registry image registry
-## @param image.repository Schema Registry image repository
-## @param image.tag Schema Registry image tag (immutable tags are recommended)
+## @param image.registry [default: REGISTRY_NAME] Schema Registry image registry
+## @param image.repository [default: REPOSITORY_NAME/schema-registry] Schema Registry image repository
+## @skip image.tag Schema Registry image tag (immutable tags are recommended)
 ## @param image.digest Schema Registry image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag
 ## @param image.pullPolicy Schema Registry image pull policy
 ## @param image.pullSecrets Schema Registry image pull secrets
@@ -70,10 +78,10 @@ diagnosticMode:
 image:
   registry: docker.io
   repository: bitnami/schema-registry
-  tag: 7.3.3-debian-11-r9
+  tag: 7.6.0-debian-12-r0
   digest: ""
   ## Specify a imagePullPolicy. Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
-  ## ref: http://kubernetes.io/docs/user-guide/images/#pre-pulling-images
+  ## ref: http://kubernetes.io/docs/concepts/containers/images/#pre-pulled-images
   ##
   pullPolicy: IfNotPresent
   ## Optionally specify an array of imagePullSecrets.
@@ -93,6 +101,9 @@ command: []
 ## @param args Override default container args (useful when using custom images)
 ##
 args: []
+## @param automountServiceAccountToken Mount Service Account token in pod
+##
+automountServiceAccountToken: false
 ## @param hostAliases Schema Registry pods host aliases
 ## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
 ##
@@ -203,7 +214,6 @@ extraEnvVarsCM: ""
 ## @param extraEnvVarsSecret Name of existing Secret containing extra env vars
 ##
 extraEnvVarsSecret: ""
-
 ## @section Schema Registry statefulset parameters
 ## @param replicaCount Number of Schema Registry replicas to deploy.
 ##
@@ -238,7 +248,7 @@ nodeAffinityPreset:
 ##
 affinity: {}
 ## @param nodeSelector Node labels for pod assignment
-## ref: https://kubernetes.io/docs/user-guide/node-selection/
+## ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/
 ##
 nodeSelector: {}
 ## @param tolerations Tolerations for pod assignment
@@ -283,11 +293,15 @@ lifecycleHooks: {}
 ## Schema Registry pods' Security Context.
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
 ## @param podSecurityContext.enabled Enabled Controller pods' Security Context
+## @param podSecurityContext.fsGroupChangePolicy Set filesystem group change policy
+## @param podSecurityContext.supplementalGroups Set filesystem extra groups
 ## @param podSecurityContext.fsGroup Set Controller pod's Security Context fsGroup
 ## @param podSecurityContext.sysctls sysctl settings of the Schema Registry pods
 ##
 podSecurityContext:
   enabled: true
+  fsGroupChangePolicy: Always
+  supplementalGroups: []
   fsGroup: 1001
   ## sysctl settings
   ## Example:
@@ -298,32 +312,51 @@ podSecurityContext:
   sysctls: []
 ## Schema Registry containers' Security Context (only main container).
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
-## @param containerSecurityContext.enabled Enable container security context
-## @param containerSecurityContext.runAsUser User ID for the container
+## @param containerSecurityContext.enabled Enabled containers' Security Context
+## @param containerSecurityContext.seLinuxOptions [object,nullable] Set SELinux options in container
+## @param containerSecurityContext.runAsUser Set containers' Security Context runAsUser
+## @param containerSecurityContext.runAsGroup Set containers' Security Context runAsGroup
+## @param containerSecurityContext.runAsNonRoot Set container's Security Context runAsNonRoot
+## @param containerSecurityContext.privileged Set container's Security Context privileged
+## @param containerSecurityContext.readOnlyRootFilesystem Set container's Security Context readOnlyRootFilesystem
+## @param containerSecurityContext.allowPrivilegeEscalation Set container's Security Context allowPrivilegeEscalation
+## @param containerSecurityContext.capabilities.drop List of capabilities to be dropped
+## @param containerSecurityContext.seccompProfile.type Set container's Security Context seccomp profile
 ##
 containerSecurityContext:
   enabled: true
+  seLinuxOptions: null
   runAsUser: 1001
+  runAsGroup: 0
+  runAsNonRoot: true
+  privileged: false
+  readOnlyRootFilesystem: false
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+  seccompProfile:
+    type: "RuntimeDefault"
 ## Schema Registry containers' resource requests and limits.
-## ref: http://kubernetes.io/docs/user-guide/compute-resources/
+## ref: http://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
 ## We usually recommend not to specify default resources and to leave this as a conscious
 ## choice for the user. This also increases chances charts run on environments with little
 ## resources, such as Minikube. If you do want to specify resources, uncomment the following
 ## lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-## @param resources.limits The resources limits for the container
-## @param resources.requests The requested resources for the container
+## @param resourcesPreset Set container resources according to one common preset (allowed values: none, nano, small, medium, large, xlarge, 2xlarge). This is ignored if resources is set (resources is recommended for production).
+## More information: https://github.com/bitnami/charts/blob/main/bitnami/common/templates/_resources.tpl#L15
 ##
-resources:
-  ## e.g:
-  ## limits:
-  ##   cpu: 100m
-  ##   memory: 128Mi
-  limits: {}
-  ## e.g:
-  ## requests:
-  ##   cpu: 100m
-  ##   memory: 128Mi
-  requests: {}
+resourcesPreset: "none"
+## @param resources Set container requests and limits for different resources like CPU or memory (essential for production workloads)
+## Example:
+## resources:
+##   requests:
+##     cpu: 2
+##     memory: 512Mi
+##   limits:
+##     cpu: 3
+##     memory: 1024Mi
+##
+resources: {}
 ## Schema Registry pods' liveness and readiness probes. Evaluated as a template.
 ## ref: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-probes
 ## @param livenessProbe.enabled Enable livenessProbe
@@ -377,7 +410,7 @@ customReadinessProbe: {}
 ## @param customStartupProbe Custom startupProbe that overrides the default one
 ##
 customStartupProbe: {}
-## @param extraVolumes Optionally specify extra list of additional volumes for MinIO&reg; pods
+## @param extraVolumes Optionally specify extra list of additional volumes for schema-registry pods
 ## e.g:
 ## extraVolumes:
 ##   - name: avro-properties
@@ -385,7 +418,7 @@ customStartupProbe: {}
 ##       name: avro-properties
 ##
 extraVolumes: []
-## @param extraVolumeMounts Optionally specify extra list of additional volumeMounts for MinIO&reg; container(s)
+## @param extraVolumeMounts Optionally specify extra list of additional volumeMounts for schema-registry container(s)
 ## e.g:
 ## extraVolumeMounts:
 ##   - name: avro-properties
@@ -438,7 +471,12 @@ autoscaling:
   maxReplicas: 11
   targetCPU: ""
   targetMemory: ""
-
+  ## @param autoscaling.customPodMetrics allows you to set a list of custom metrics to trigger the scaling.
+  ## e.g:
+  ## customPodMetrics:
+  ##   - name: "requests_per_second"
+  ##     averageValue: "2000m"
+  customPodMetrics: []
 ## @section Exposure Parameters
 ## Schema Registry Service paramaters.
 ##
@@ -484,7 +522,7 @@ service:
   extraPorts: []
   ## @param service.sessionAffinity Control where client requests go, to the same pod or round-robin
   ## Values: ClientIP or None
-  ## ref: https://kubernetes.io/docs/user-guide/services/
+  ## ref: https://kubernetes.io/docs/concepts/services-networking/service/
   ##
   sessionAffinity: None
   ## @param service.sessionAffinityConfig Additional settings for the sessionAffinity
@@ -499,6 +537,61 @@ service:
     ## @param service.headless.annotations Annotations for the headless service.
     ##
     annotations: {}
+## Network Policies
+## Ref: https://kubernetes.io/docs/concepts/services-networking/network-policies/
+##
+networkPolicy:
+  ## @param networkPolicy.enabled Specifies whether a NetworkPolicy should be created
+  ##
+  enabled: true
+  ## @param networkPolicy.allowExternal Don't require client label for connections
+  ## The Policy model to apply. When set to false, only pods with the correct
+  ## client label will have network access to the ports the application is listening
+  ## on. When true, the app will accept connections from any source
+  ## (with the correct destination port).
+  ##
+  allowExternal: true
+  ## @param networkPolicy.allowExternalEgress Allow the pod to access any range of port and all destinations.
+  ##
+  allowExternalEgress: true
+  ## @param networkPolicy.extraIngress [array] Add extra ingress rules to the NetworkPolice
+  ## e.g:
+  ## extraIngress:
+  ##   - ports:
+  ##       - port: 1234
+  ##     from:
+  ##       - podSelector:
+  ##           - matchLabels:
+  ##               - role: frontend
+  ##       - podSelector:
+  ##           - matchExpressions:
+  ##               - key: role
+  ##                 operator: In
+  ##                 values:
+  ##                   - frontend
+  extraIngress: []
+  ## @param networkPolicy.extraEgress [array] Add extra ingress rules to the NetworkPolicy
+  ## e.g:
+  ## extraEgress:
+  ##   - ports:
+  ##       - port: 1234
+  ##     to:
+  ##       - podSelector:
+  ##           - matchLabels:
+  ##               - role: frontend
+  ##       - podSelector:
+  ##           - matchExpressions:
+  ##               - key: role
+  ##                 operator: In
+  ##                 values:
+  ##                   - frontend
+  ##
+  extraEgress: []
+  ## @param networkPolicy.ingressNSMatchLabels [object] Labels to match to allow traffic from other namespaces
+  ## @param networkPolicy.ingressNSPodMatchLabels [object] Pod labels to match to allow traffic from other namespaces
+  ##
+  ingressNSMatchLabels: {}
+  ingressNSPodMatchLabels: {}
 ## @param ingress.enabled                Enable ingress controller resource
 ## @param ingress.hostname               Default host for the ingress resource
 ## @param ingress.annotations            Ingress annotations
@@ -533,7 +626,7 @@ ingress:
   ## NOTE: If `ingress.certManager=true`, annotation `kubernetes.io/tls-acme: "true"` will automatically be added
   ##
   ## For a full list of possible ingress annotations, please see
-  ## ref: https://github.com/kubernetes/ingress-nginx/blob/master/docs/user-guide/nginx-configuration/annotations.md
+  ## ref: https://github.com/kubernetes/ingress-nginx/blob/main/docs/user-guide/nginx-configuration/annotations.md
   ##
   annotations: {}
   ## @param ingress.tls Enable TLS configuration for the host defined at `ingress.hostname` parameter
@@ -606,7 +699,6 @@ ingress:
   ##             name: http
   ##
   extraRules: []
-
 ## @section RBAC parameters
 ## Schema Registry pods ServiceAccount.
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
@@ -624,8 +716,7 @@ serviceAccount:
   annotations: {}
   ## @param serviceAccount.automountServiceAccountToken Automount service account token for the server service account
   ##
-  automountServiceAccountToken: true
-
+  automountServiceAccountToken: false
 ## @section Kafka chart parameters
 ##
 ## Kafka chart configuration
@@ -636,10 +727,32 @@ kafka:
   ## @param kafka.enabled Enable/disable Kafka chart installation
   ##
   enabled: true
-  ## @param kafka.replicaCount Number of Kafka brokers
+  ## @param kafka.controller.replicaCount Number of Kafka controller-eligible (controller+broker) nodes
   ##
-  replicaCount: 1
-
+  controller:
+    replicaCount: 1
+  ## @param kafka.listeners.client.protocol Authentication protocol for communications with clients. Allowed protocols: `PLAINTEXT`, `SASL_PLAINTEXT`, `SASL_SSL`, `SSL`
+  ##
+  listeners:
+    client:
+      protocol: "PLAINTEXT"
+  ## @param kafka.service.ports.client Kafka svc port for client connections
+  ##
+  service:
+    ports:
+      client: 9092
+  ## @param kafka.extraConfig Additional configuration to be appended at the end of the generated Kafka configuration file.
+  ##
+  extraConfig: |-
+    offsets.topic.replication.factor=1
+  ## @param kafka.sasl.client.users Comma-separated list of usernames for Kafka client listener when SASL is enabled
+  ## @param kafka.sasl.client.passwords Comma-separated list of passwords for client listener when SASL is enabled, must match the number of client.users
+  ##
+  sasl:
+    client:
+      users:
+        - user
+      passwords: ""
 ##
 ## External Kafka Configuration
 ## All of these values are only used when kafka.enabled is set to false
@@ -649,25 +762,16 @@ externalKafka:
   ##
   brokers:
     - PLAINTEXT://localhost:9092
-  ## Authentication parameters
-  ## @param externalKafka.auth.protocol                   Authentication protocol. Allowed protocols: plaintext, tls, sasl and sasl_tls
-  ## @param externalKafka.auth.jaas.user                  User for SASL authentication
-  ## @param externalKafka.auth.jaas.password              Password for SASL authentication
+  ## @param externalKafka.listener.protocol Kafka listener protocol. Allowed protocols: PLAINTEXT, SASL_PLAINTEXT, SASL_SSL and SSL
   ##
-  auth:
-    ## Authentication protocol
-    ## Supported values: 'plaintext', 'tls', sasl' and 'sasl_tls'
-    ## This table shows the security provided on each protocol:
-    ## | Method    | Authentication                | Encryption via TLS |
-    ## | plaintext | None                          | No                 |
-    ## | tls       | None                          | Yes                |
-    ## | sasl      | Yes (via SASL)                | No                 |
-    ## | sasl_tls  | Yes (via SASL)                | Yes                |
-    ##
-    protocol: plaintext
-    ## JAAS configuration for SASL authentication
-    ## MANDATORY when protocol is 'sasl' or 'sasl_tls'
-    ##
-    jaas:
-      user: user
-      password: ""
+  listener:
+    protocol: PLAINTEXT
+  ## Authentication parameters
+  ## @param externalKafka.sasl.user User for SASL authentication
+  ## @param externalKafka.sasl.password Password for SASL authentication
+  ## @param externalKafka.sasl.existingSecret Name of the existing secret containing a password for SASL authentication (under the key named "client-passwords")
+  ##
+  sasl:
+    user: user
+    password: ""
+    existingSecret: ""

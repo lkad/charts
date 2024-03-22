@@ -1,3 +1,8 @@
+{{/*
+Copyright VMware, Inc.
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
 {{/* vim: set filetype=mustache: */}}
 
 {{/*
@@ -18,7 +23,7 @@ Usage:
 
 {{- define "mongodb-sharded.secret" -}}
   {{- if .Values.auth.existingSecret -}}
-    {{- .Values.auth.existingSecret -}}
+    {{- printf "%s" (tpl .Values.auth.existingSecret $) -}}
   {{- else }}
     {{- include "common.names.fullname" . -}}
   {{- end }}

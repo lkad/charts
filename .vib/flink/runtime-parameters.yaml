@@ -69,6 +69,8 @@ extraDeploy:
                     do
                     ./bin/flink run ./examples/batch/EnumTriangles.jar --jobmanager $host:$port -Drest.port={{ .Values.jobmanager.service.ports.http }}
                     echo "1" > /tmp/ready
+                    # Adding a sleep to not overload the deployment
+                    sleep 10
                     done
                   fi
               startupProbe:
@@ -87,6 +89,16 @@ extraDeploy:
                 timeoutSeconds: 1
                 failureThreshold: 15
                 successThreshold: 1
+              securityContext:
+                runAsUser: 1001
+                runAsNonRoot: true
+                privileged: false
+                readOnlyRootFilesystem: false
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+                seccompProfile:
+                  type: "RuntimeDefault"
               volumeMounts:
                 - name: flink-config-volume
                   mountPath: /opt/bitnami/flink/conf

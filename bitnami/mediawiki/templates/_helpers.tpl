@@ -1,3 +1,8 @@
+{{/*
+Copyright VMware, Inc.
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
 {{/* vim: set filetype=mustache: */}}
 
 {{/*
@@ -18,7 +23,7 @@ If not using ClusterIP, or if a host or LoadBalancerIP is not defined, the value
 When using Ingress, it will be set to the Ingress hostname.
 */}}
 {{- define "mediawiki.host" -}}
-{{- $host := index .Values (printf "%sHost" .Chart.Name) | default "" -}}
+{{- $host := .Values.mediawikiHost | default "" -}}
 {{- if .Values.ingress.enabled }}
 {{- $host := .Values.ingress.hostname | default "" -}}
 {{- end -}}
@@ -52,6 +57,17 @@ Return the proper Docker Image Registry Secret Names
 */}}
 {{- define "mediawiki.imagePullSecrets" -}}
 {{- include "common.images.pullSecrets" (dict "images" (list .Values.image .Values.metrics.image) "global" .Values.global) -}}
+{{- end -}}
+
+{{/*
+ Create the name of the service account to use
+ */}}
+{{- define "mediawiki.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create -}}
+    {{ default (include "common.names.fullname" .) .Values.serviceAccount.name }}
+{{- else -}}
+    {{ default "default" .Values.serviceAccount.name }}
+{{- end -}}
 {{- end -}}
 
 {{/*

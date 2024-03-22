@@ -1,3 +1,6 @@
+# Copyright VMware, Inc.
+# SPDX-License-Identifier: APACHE-2.0
+
 file:
   /bitnami/dokuwiki:
     exists: true
@@ -8,5 +11,5 @@ file:
     exists: true
     filetype: file
     mode: "0644"
-    contains:
+    contents:
       - /title.*{{ .Vars.dokuwikiWikiName }}/

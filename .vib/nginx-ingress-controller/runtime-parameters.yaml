@@ -1,6 +1,6 @@
 containerPorts:
-  http: 80
-  https: 443
+  http: 8080
+  https: 8443
 ingressClassResource:
   name: nginx
   enabled: true
@@ -33,7 +33,7 @@ service:
   type: LoadBalancer
 serviceAccount:
   create: true
-  automountServiceAccountToken: true
+automountServiceAccountToken: true
 rbac:
   create: true
 extraDeploy:
@@ -41,27 +41,35 @@ extraDeploy:
   kind: Deployment
   metadata:
     labels:
-      app: kuard
-    name: kuard
+      app: dokuwiki
+    name: dokuwiki
   spec:
     replicas: 1
     selector:
       matchLabels:
-        app: kuard
+        app: dokuwiki
     template:
       metadata:
         labels:
-          app: kuard
+          app: dokuwiki
       spec:
         containers:
-        - image: gcr.io/kuar-demo/kuard-amd64:1
-          name: kuard
+        - image: docker.io/bitnami/dokuwiki:latest
+          name: dokuwiki
+          securityContext:
+            runAsNonRoot: true
+            privileged: false
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: "RuntimeDefault"
 - apiVersion: v1
   kind: Service
   metadata:
     labels:
-      app: kuard
-    name: kuard-vib
+      app: dokuwiki
+    name: dokuwiki-vib
   spec:
     ports:
     - port: 80
@@ -70,9 +78,9 @@ extraDeploy:
       name: http
     - port: 443
       protocol: TCP
-      targetPort: 443
+      targetPort: 8443
       name: https
     selector:
-      app: kuard
+      app: dokuwiki
     sessionAffinity: None
     type: ClusterIP

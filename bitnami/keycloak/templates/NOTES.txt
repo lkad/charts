@@ -18,6 +18,13 @@ To access Keycloak from outside the cluster execute the following commands:
    echo "Keycloak URL: http{{ if .Values.ingress.tls }}s{{ end }}://{{ (tpl .Values.ingress.hostname .) }}/"
    echo "$CLUSTER_IP  {{ (tpl .Values.ingress.hostname .) }}" | sudo tee -a /etc/hosts
 
+{{- if .Values.adminIngress.enabled }}
+The admin area of Keycloak has been configured to point to a different domain ({{ .Values.adminIngress.hostname }}). Please remember to update the `frontendUrl` property of the `master` (or any other) realm for it to work properly (see README for an example) :
+
+   echo "Keycloak admin URL: http{{ if .Values.adminIngress.tls }}s{{ end }}://{{ (tpl .Values.adminIngress.hostname .) }}/"
+   echo "$CLUSTER_IP  {{ (tpl .Values.adminIngress.hostname .) }}" | sudo tee -a /etc/hosts
+{{- end }}
+
 {{- else }}
 
 1. Get the Keycloak URL by running these commands:
@@ -56,8 +63,10 @@ To access Keycloak from outside the cluster execute the following commands:
     export HTTP_SERVICE_PORT=$(kubectl get --namespace {{ include "common.names.namespace" . }} -o jsonpath="{.spec.ports[?(@.name=='http')].port}" services {{ include "common.names.fullname" . }})
     {{- if .Values.tls.enabled }}
     export HTTPS_SERVICE_PORT=$(kubectl get --namespace {{ include "common.names.namespace" . }} -o jsonpath="{.spec.ports[?(@.name=='https')].port}" services {{ include "common.names.fullname" . }})
-    {{- end }}
     kubectl port-forward --namespace {{ include "common.names.namespace" . }} svc/{{ include "common.names.fullname" . }} ${HTTP_SERVICE_PORT}:${HTTP_SERVICE_PORT} ${HTTPS_SERVICE_PORT}:${HTTPS_SERVICE_PORT} &
+    {{- else }}
+    kubectl port-forward --namespace {{ include "common.names.namespace" . }} svc/{{ include "common.names.fullname" . }} ${HTTP_SERVICE_PORT}:${HTTP_SERVICE_PORT} &
+    {{- end }}
 
     echo "http://127.0.0.1:${HTTP_SERVICE_PORT}/"
     {{- if .Values.tls.enabled }}
@@ -91,3 +100,4 @@ You can access the Prometheus metrics following the steps below:
 {{- include "keycloak.validateValues" . }}
 {{- include "common.warnings.rollingTag" .Values.image }}
 {{- include "common.warnings.rollingTag" .Values.keycloakConfigCli.image }}
+{{- include "common.warnings.resources" (dict "sections" (list "keycloakConfigCli" "") "context" $) }}

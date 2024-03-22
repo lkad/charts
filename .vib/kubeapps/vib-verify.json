@@ -31,13 +31,6 @@
       },
       "actions": [
         {
-          "action_id": "health-check",
-          "params": {
-            "endpoint": "lb-kubeapps-http",
-            "app_protocol": "HTTP"
-          }
-        },
-        {
           "action_id": "goss",
           "params": {
             "resources": {
@@ -59,11 +52,10 @@
               "path": "/.vib/kubeapps/cypress"
             },
             "endpoint": "lb-kubeapps-http",
-            "app_protocol": "HTTP",
             "env": {
-              "repoName": "bitnami",
-              "repoURL": "oci://registry-1.docker.io/bitnamicharts"
-            }
+              "registryName": "bitnamicharts"
+            },
+            "app_protocol": "HTTP"
           }
         }
       ]

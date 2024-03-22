@@ -12,18 +12,24 @@
         "vib": "testing"
       }
     },
-    "entrypoint": "argosay",
+    "securityContext" : {
+      "runAsNonRoot": true,
+      "seccompProfile": {
+        "type": "RuntimeDefault"
+     }
+    },
+    "entrypoint": "echo",
     "arguments": {
       "parameters": [
         {
           "name": "message",
-          "value": "hello argo"
+          "value": "hello world"
         }
       ]
     },
     "templates": [
       {
-        "name": "argosay",
+        "name": "echo",
         "inputs": {
           "parameters": [
             {
@@ -34,14 +40,21 @@
         },
         "container": {
           "name": "main",
-          "image": "argoproj/argosay:v2",
+          "image": "bitnami/minideb",
           "command": [
-            "/argosay"
+            "echo"
           ],
           "args": [
-            "echo",
             "{{inputs.parameters.message}}"
-          ]
+          ],
+          "securityContext": {
+             "runAsUser": 1001,
+             "runAsGroup": 1001,
+             "allowPrivilegeEscalation": false,
+             "capabilities": {
+                "drop": [ "ALL"]
+              }
+            }
         }
       }
     ],

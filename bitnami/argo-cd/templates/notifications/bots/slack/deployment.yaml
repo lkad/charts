@@ -1,14 +1,16 @@
+{{- /*
+Copyright VMware, Inc.
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
 {{ if and .Values.notifications.enabled .Values.notifications.bots.slack.enabled }}
 apiVersion: {{ include "common.capabilities.deployment.apiVersion" . }}
 kind: Deployment
 metadata:
   name: {{ include "argocd.notifications" . }}-slack-bot
-  namespace: {{ .Release.Namespace | quote }}
-  labels: {{- include "common.labels.standard" . | nindent 4 }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "common.labels.standard" ( dict "customLabels" .Values.commonLabels "context" $ ) | nindent 4 }}
     app.kubernetes.io/component: notifications-slack-bot
-    {{- if .Values.commonLabels }}
-    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
-    {{- end }}
   {{- if .Values.commonAnnotations }}
   annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
   {{- end }}
@@ -16,19 +18,17 @@ spec:
   replicas: 1
   strategy:
     type: Recreate
+  {{- $podLabels := include "common.tplvalues.merge" ( dict "values" ( list .Values.notifications.bots.slack.podLabels .Values.commonLabels ) "context" . ) }}
   selector:
-    matchLabels: {{- include "common.labels.matchLabels" . | nindent 6 }}
+    matchLabels: {{- include "common.labels.matchLabels" ( dict "customLabels" $podLabels "context" $ ) | nindent 6 }}
       app.kubernetes.io/component: notifications-slack-bot
   template:
     metadata:
       {{- if .Values.notifications.bots.slack.podAnnotations }}
       annotations: {{- include "common.tplvalues.render" (dict "value" .Values.notifications.bots.slack.podAnnotations "context" $) | nindent 8 }}
       {{- end }}
-      labels: {{- include "common.labels.standard" . | nindent 8 }}
+      labels: {{- include "common.labels.standard" ( dict "customLabels" $podLabels "context" $ ) | nindent 8 }}
         app.kubernetes.io/component: notifications-slack-bot
-        {{- if .Values.notifications.bots.slack.podLabels }}
-        {{- include "common.tplvalues.render" (dict "value" .Values.notifications.bots.slack.podLabels "context" $) | nindent 8 }}
-        {{- end }}
     spec:
       serviceAccountName: {{ include "argocd.notifications.bots.slack.serviceAccountName" . }}
       {{- include "argocd.imagePullSecrets" . | nindent 6 }}
@@ -39,8 +39,8 @@ spec:
       affinity: {{- include "common.tplvalues.render" ( dict "value" .Values.notifications.bots.slack.affinity "context" $) | nindent 8 }}
       {{- else }}
       affinity:
-        podAffinity: {{- include "common.affinities.pods" (dict "type" .Values.notifications.bots.slack.podAffinityPreset "component" "notifications" "context" $) | nindent 10 }}
-        podAntiAffinity: {{- include "common.affinities.pods" (dict "type" .Values.notifications.bots.slack.podAntiAffinityPreset "component" "notifications" "context" $) | nindent 10 }}
+        podAffinity: {{- include "common.affinities.pods" (dict "type" .Values.notifications.bots.slack.podAffinityPreset "component" "notifications" "customLabels" $podLabels "context" $) | nindent 10 }}
+        podAntiAffinity: {{- include "common.affinities.pods" (dict "type" .Values.notifications.bots.slack.podAntiAffinityPreset "component" "notifications" "customLabels" $podLabels "context" $) | nindent 10 }}
         nodeAffinity: {{- include "common.affinities.nodes" (dict "type" .Values.notifications.bots.slack.nodeAffinityPreset.type "key" .Values.notifications.bots.slack.nodeAffinityPreset.key "values" .Values.notifications.bots.slack.nodeAffinityPreset.values) | nindent 10 }}
       {{- end }}
       {{- if .Values.notifications.bots.slack.tolerations }}
@@ -50,7 +50,7 @@ spec:
       priorityClassName: {{ .Values.notifications.bots.slack.priorityClassName | quote }}
       {{- end }}
       {{- if .Values.notifications.bots.slack.podSecurityContext.enabled }}
-      securityContext: {{- omit .Values.notifications.bots.slack.podSecurityContext "enabled" | toYaml | nindent 8 }}
+      securityContext: {{- include "common.compatibility.renderSecurityContext" (dict "secContext" .Values.notifications.bots.slack.podSecurityContext "context" $) | nindent 8 }}
       {{- end }}
       containers:
         - name: notifications-slack-bot
@@ -65,6 +65,8 @@ spec:
           args:
             - argocd-notifications
             - bot
+            - --metrics-port
+            - {{ .Values.notifications.bots.slack.containerPorts.metrics | quote }}
           {{- if .Values.notifications.bots.slack.extraArgs }}
           {{- include "common.tplvalues.render" (dict "value" .Values.notifications.bots.slack.extraArgs "context" $) | nindent 12 }}
           {{- end }}
@@ -86,16 +88,66 @@ spec:
             - name: http
               containerPort: 8080
               protocol: TCP
+            - name: metrics
+              containerPort: {{ .Values.notifications.bots.slack.containerPorts.metrics }} 
+              protocol: TCP
+          {{- if .Values.notifications.bots.slack.customLivenessProbe }}
+          livenessProbe: {{- include "common.tplvalues.render" (dict "value" .Values.notifications.bots.slack.customLivenessProbe "context" $) | nindent 12 }}
+          {{- else if .Values.notifications.bots.slack.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              port: metrics
+              path: /metrics
+            initialDelaySeconds: {{ .Values.notifications.bots.slack.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.notifications.bots.slack.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.notifications.bots.slack.livenessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.notifications.bots.slack.livenessProbe.successThreshold }}
+            failureThreshold: {{ .Values.notifications.bots.slack.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.notifications.bots.slack.customReadinessProbe }}
+          readinessProbe: {{- include "common.tplvalues.render" (dict "value" .Values.notifications.bots.slack.customReadinessProbe "context" $) | nindent 12 }}
+          {{- else if .Values.notifications.bots.slack.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              port: metrics
+              path: /metrics
+            initialDelaySeconds: {{ .Values.notifications.bots.slack.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.notifications.bots.slack.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.notifications.bots.slack.readinessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.notifications.bots.slack.readinessProbe.successThreshold }}
+            failureThreshold: {{ .Values.notifications.bots.slack.readinessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.notifications.bots.slack.customStartupProbe }}
+          startupProbe: {{- include "common.tplvalues.render" (dict "value" .Values.notifications.bots.slack.customStartupProbe "context" $) | nindent 12 }}
+          {{- else if .Values.notifications.bots.slack.startupProbe.enabled }}
+          startupProbe:
+            httpGet:
+              port: metrics
+              path: /metrics
+            initialDelaySeconds: {{ .Values.notifications.bots.slack.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.notifications.bots.slack.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.notifications.bots.slack.startupProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.notifications.bots.slack.startupProbe.successThreshold }}
+            failureThreshold: {{ .Values.notifications.bots.slack.startupProbe.failureThreshold }}
+          {{- end }}
           {{- if .Values.notifications.bots.slack.resources }}
           resources: {{- toYaml .Values.notifications.bots.slack.resources | nindent 12 }}
+          {{- else if ne .Values.notifications.bots.slack.resourcesPreset "none" }}
+          resources: {{- include "common.resources.preset" (dict "type" .Values.notifications.bots.slack.resourcesPreset) | nindent 12 }}
           {{- end }}
           {{- if .Values.notifications.bots.slack.containerSecurityContext.enabled }}
-          securityContext: {{- omit .Values.notifications.bots.slack.containerSecurityContext "enabled" | toYaml | nindent 12 }}
+          securityContext: {{- include "common.compatibility.renderSecurityContext" (dict "secContext" .Values.notifications.bots.slack.containerSecurityContext "context" $) | nindent 12 }}
           {{- end }}
+          volumeMounts:
+            - name: empty-dir
+              mountPath: /tmp
+              subPath: tmp-dir
           {{- if .Values.notifications.bots.slack.extraVolumeMounts }}
           {{- include "common.tplvalues.render" (dict "value" .Values.notifications.bots.slack.extraVolumeMounts "context" $) | nindent 12 }}
           {{- end }}
       volumes:
+        - name: empty-dir
+          emptyDir: {}
         {{- if .Values.notifications.bots.slack.extraVolumes }}
         {{- include "common.tplvalues.render" (dict "value" .Values.notifications.bots.slack.extraVolumes "context" $) | nindent 8 }}
         {{- end }}

@@ -1,13 +1,15 @@
+{{- /*
+Copyright VMware, Inc.
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
 apiVersion: {{ include "common.capabilities.deployment.apiVersion" . }}
 kind: Deployment
 metadata:
   name: {{ template "appsmith.backend.fullname" . }}
   namespace: {{ include "common.names.namespace" . | quote }}
-  labels: {{- include "common.labels.standard" . | nindent 4 }}
+  labels: {{- include "common.labels.standard" ( dict "customLabels" .Values.commonLabels "context" $ ) | nindent 4 }}
     app.kubernetes.io/component: backend
-    {{- if .Values.commonLabels }}
-    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
-    {{- end }}
   {{- if .Values.commonAnnotations }}
   annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
   {{- end }}
@@ -16,22 +18,21 @@ spec:
   {{- if .Values.backend.updateStrategy }}
   strategy: {{- toYaml .Values.backend.updateStrategy | nindent 4 }}
   {{- end }}
+  {{- $podLabels := include "common.tplvalues.merge" ( dict "values" ( list .Values.backend.podLabels .Values.commonLabels ) "context" . ) }}
   selector:
-    matchLabels: {{- include "common.labels.matchLabels" . | nindent 6 }}
+    matchLabels: {{- include "common.labels.matchLabels" ( dict "customLabels" $podLabels "context" $ ) | nindent 6 }}
       app.kubernetes.io/component: backend
   template:
     metadata:
       {{- if .Values.backend.podAnnotations }}
       annotations: {{- include "common.tplvalues.render" (dict "value" .Values.backend.podAnnotations "context" $) | nindent 8 }}
       {{- end }}
-      labels: {{- include "common.labels.standard" . | nindent 8 }}
+      labels: {{- include "common.labels.standard" ( dict "customLabels" $podLabels "context" $ ) | nindent 8 }}
         app.kubernetes.io/component: backend
-        {{- if .Values.backend.podLabels }}
-        {{- include "common.tplvalues.render" (dict "value" .Values.backend.podLabels "context" $) | nindent 8 }}
-        {{- end }}
     spec:
       serviceAccountName: {{ template "appsmith.serviceAccountName" . }}
       {{- include "appsmith.imagePullSecrets" . | nindent 6 }}
+      automountServiceAccountToken: {{ .Values.backend.automountServiceAccountToken }}
       {{- if .Values.backend.hostAliases }}
       hostAliases: {{- include "common.tplvalues.render" (dict "value" .Values.backend.hostAliases "context" $) | nindent 8 }}
       {{- end }}
@@ -39,8 +40,8 @@ spec:
       affinity: {{- include "common.tplvalues.render" ( dict "value" .Values.backend.affinity "context" $) | nindent 8 }}
       {{- else }}
       affinity:
-        podAffinity: {{- include "common.affinities.pods" (dict "type" .Values.backend.podAffinityPreset "component" "backend" "context" $) | nindent 10 }}
-        podAntiAffinity: {{- include "common.affinities.pods" (dict "type" .Values.backend.podAntiAffinityPreset "component" "backend" "context" $) | nindent 10 }}
+        podAffinity: {{- include "common.affinities.pods" (dict "type" .Values.backend.podAffinityPreset "component" "backend" "customLabels" $podLabels "context" $) | nindent 10 }}
+        podAntiAffinity: {{- include "common.affinities.pods" (dict "type" .Values.backend.podAntiAffinityPreset "component" "backend" "customLabels" $podLabels "context" $) | nindent 10 }}
         nodeAffinity: {{- include "common.affinities.nodes" (dict "type" .Values.backend.nodeAffinityPreset.type "key" .Values.backend.nodeAffinityPreset.key "values" .Values.backend.nodeAffinityPreset.values) | nindent 10 }}
       {{- end }}
       {{- if .Values.backend.nodeSelector }}
@@ -59,7 +60,7 @@ spec:
       topologySpreadConstraints: {{- include "common.tplvalues.render" (dict "value" .Values.backend.topologySpreadConstraints "context" .) | nindent 8 }}
       {{- end }}
       {{- if .Values.backend.podSecurityContext.enabled }}
-      securityContext: {{- omit .Values.backend.podSecurityContext "enabled" | toYaml | nindent 8 }}
+      securityContext: {{- include "common.compatibility.renderSecurityContext" (dict "secContext" .Values.backend.podSecurityContext "context" $) | nindent 8 }}
       {{- end }}
       {{- if .Values.backend.terminationGracePeriodSeconds }}
       terminationGracePeriodSeconds: {{ .Values.backend.terminationGracePeriodSeconds }}
@@ -77,7 +78,11 @@ spec:
               find {{ .Values.backend.persistence.mountPath }} -mindepth 1 -maxdepth 1 -not -name ".snapshot" -not -name "lost+found" | xargs chown -R {{ .Values.backend.containerSecurityContext.runAsUser }}:{{ .Values.backend.podSecurityContext.fsGroup }}
           securityContext:
             runAsUser: 0
+          {{- if .Values.volumePermissions.resources }}
           resources: {{- toYaml .Values.volumePermissions.resources | nindent 12 }}
+          {{- else if ne .Values.volumePermissions.resourcesPreset "none" }}
+          resources: {{- include "common.resources.preset" (dict "type" .Values.volumePermissions.resourcesPreset) | nindent 12 }}
+          {{- end }}
           volumeMounts:
             - name: data
               mountPath: {{ .Values.backend.persistence.mountPath }}
@@ -94,7 +99,7 @@ spec:
           image: {{ template "appsmith.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- if .Values.backend.containerSecurityContext.enabled }}
-          securityContext: {{- omit .Values.backend.containerSecurityContext "enabled" | toYaml | nindent 12 }}
+          securityContext: {{- include "common.compatibility.renderSecurityContext" (dict "secContext" .Values.backend.containerSecurityContext "context" $) | nindent 12 }}
           {{- end }}
           {{- if .Values.diagnosticMode.enabled }}
           command: {{- include "common.tplvalues.render" (dict "value" .Values.diagnosticMode.command "context" $) | nindent 12 }}
@@ -156,6 +161,10 @@ spec:
                   key: {{ include "appsmith.redis.secretKey" . }}
             - name: APPSMITH_RTS_PORT
               value: {{ .Values.rts.containerPorts.http | quote }}
+            {{- if .Values.backend.persistence.gitDataPath }}
+            - name: APPSMITH_GIT_ROOT
+              value: {{ include "appsmith.gitDataPath" . }}
+            {{- end }}
             {{- if .Values.backend.extraEnvVars }}
             {{- include "common.tplvalues.render" (dict "value" .Values.backend.extraEnvVars "context" $) | nindent 12 }}
             {{- end }}
@@ -170,6 +179,8 @@ spec:
             {{- end }}
           {{- if .Values.backend.resources }}
           resources: {{- toYaml .Values.backend.resources | nindent 12 }}
+          {{- else if ne .Values.backend.resourcesPreset "none" }}
+          resources: {{- include "common.resources.preset" (dict "type" .Values.backend.resourcesPreset) | nindent 12 }}
           {{- end }}
           ports:
             - name: http

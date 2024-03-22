@@ -1,3 +1,6 @@
+# Copyright VMware, Inc.
+# SPDX-License-Identifier: APACHE-2.0
+
 ## @section Global parameters
 ## Global Docker image parameters
 ## Please, note that this will override the image parameters, including dependencies, configured to use the global value
@@ -16,7 +19,15 @@ global:
   ##
   imagePullSecrets: []
   storageClass: ""
-
+  ## Compatibility adaptations for Kubernetes platforms
+  ##
+  compatibility:
+    ## Compatibility adaptations for Openshift
+    ##
+    openshift:
+      ## @param global.compatibility.openshift.adaptSecurityContext Adapt the securityContext sections of the deployment to make them compatible with Openshift restricted-v2 SCC: remove runAsUser, runAsGroup and fsGroup and let the platform use their allowed default IDs. Possible values: auto (apply if the detected running cluster is Openshift), force (perform the adaptation always), disabled (do not perform adaptation)
+      ##
+      adaptSecurityContext: disabled
 ## @section Common parameters
 ##
 
@@ -55,12 +66,11 @@ diagnosticMode:
   ##
   args:
     - infinity
-
 ## Bitnami Odoo image
 ## ref: https://hub.docker.com/r/bitnami/odoo/tags/
-## @param image.registry Odoo image registry
-## @param image.repository Odoo image repository
-## @param image.tag Odoo image tag (immutable tags are recommended)
+## @param image.registry [default: REGISTRY_NAME] Odoo image registry
+## @param image.repository [default: REPOSITORY_NAME/odoo] Odoo image repository
+## @skip image.tag Odoo image tag (immutable tags are recommended)
 ## @param image.digest Odoo image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag
 ## @param image.pullPolicy Odoo image pull policy
 ## @param image.pullSecrets Odoo image pull secrets
@@ -69,11 +79,11 @@ diagnosticMode:
 image:
   registry: docker.io
   repository: bitnami/odoo
-  tag: 16.0.20230415-debian-11-r8
+  tag: 17.0.20240305-debian-12-r0
   digest: ""
   ## Specify a imagePullPolicy
   ## Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
-  ## ref: https://kubernetes.io/docs/user-guide/images/#pre-pulling-images
+  ## ref: https://kubernetes.io/docs/concepts/containers/images/#pre-pulled-images
   ##
   pullPolicy: IfNotPresent
   ## Optionally specify an array of imagePullSecrets.
@@ -87,7 +97,6 @@ image:
   ## Enable debug mode
   ##
   debug: false
-
 ## @section Odoo Configuration parameters
 ## Odoo settings based on environment variables
 ## ref: https://github.com/bitnami/containers/tree/main/bitnami/odoo#environment-variables
@@ -105,6 +114,9 @@ odooPassword: ""
 ## @param odooSkipInstall Skip Odoo installation wizard
 ##
 odooSkipInstall: false
+## @param odooDatabaseFilter Filter odoo database by using a regex
+##
+odooDatabaseFilter: .*
 ## @param loadDemoData Whether to load demo data for all modules during initialization
 ## ref: https://github.com/bitnami/containers/tree/main/bitnami/odoo#configuration
 ##
@@ -166,7 +178,6 @@ extraEnvVarsCM: ""
 ## @param extraEnvVarsSecret Name of existing Secret containing extra env vars
 ##
 extraEnvVarsSecret: ""
-
 ## @section Odoo deployment parameters
 ##
 
@@ -180,31 +191,49 @@ replicaCount: 1
 containerPorts:
   http: 8069
 ## Odoo containers' resource requests and limits
-## ref: https://kubernetes.io/docs/user-guide/compute-resources/
-## @param resources.limits The resources limits for the Odoo container
-## @param resources.requests [object] The requested resources for the Odoo container
+## ref: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
+## @param resourcesPreset Set container resources according to one common preset (allowed values: none, nano, small, medium, large, xlarge, 2xlarge). This is ignored if resources is set (resources is recommended for production).
+## More information: https://github.com/bitnami/charts/blob/main/bitnami/common/templates/_resources.tpl#L15
 ##
-resources:
-  limits: {}
-  requests:
-    memory: 512Mi
-    cpu: 300m
+resourcesPreset: "none"
+## @param resources Set container requests and limits for different resources like CPU or memory (essential for production workloads)
+## Example:
+## resources:
+##   requests:
+##     cpu: 2
+##     memory: 512Mi
+##   limits:
+##     cpu: 3
+##     memory: 1024Mi
+##
+resources: {}
 ## Configure Pods Security Context
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
 ## @param podSecurityContext.enabled Enabled Odoo pods' Security Context
+## @param podSecurityContext.fsGroupChangePolicy Set filesystem group change policy
+## @param podSecurityContext.sysctls Set kernel settings using the sysctl interface
+## @param podSecurityContext.supplementalGroups Set filesystem extra groups
 ## @param podSecurityContext.fsGroup Set Odoo pod's Security Context fsGroup
 ##
 podSecurityContext:
-  enabled: false
-  fsGroup: 1001
+  enabled: true
+  fsGroupChangePolicy: Always
+  sysctls: []
+  supplementalGroups: []
+  fsGroup: 0
 ## Configure Container Security Context (only main container)
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
 ## @param containerSecurityContext.enabled Enabled Odoo containers' Security Context
+## @param containerSecurityContext.seLinuxOptions [object,nullable] Set SELinux options in container
 ## @param containerSecurityContext.runAsUser Set Odoo container's Security Context runAsUser
+## @param containerSecurityContext.seccompProfile.type Set container's Security Context seccomp profile
 ##
 containerSecurityContext:
-  enabled: false
-  runAsUser: 1001
+  enabled: true
+  seLinuxOptions: null
+  runAsUser: 0
+  seccompProfile:
+    type: "RuntimeDefault"
 ## Configure extra options for Odoo containers' liveness and readiness probes
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/#configure-probes
 ## @param livenessProbe.enabled Enable livenessProbe
@@ -267,6 +296,9 @@ customStartupProbe: {}
 ## @param lifecycleHooks LifecycleHooks to set additional configuration at startup
 ##
 lifecycleHooks: {}
+## @param automountServiceAccountToken Mount Service Account token in pod
+##
+automountServiceAccountToken: false
 ## @param hostAliases Odoo pod host aliases
 ## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
 ##
@@ -310,7 +342,7 @@ nodeAffinityPreset:
 ##
 affinity: {}
 ## @param nodeSelector Node labels for pod assignment
-## ref: https://kubernetes.io/docs/user-guide/node-selection/
+## ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/
 ##
 nodeSelector: {}
 ## @param tolerations Tolerations for pod assignment
@@ -334,7 +366,7 @@ schedulerName: ""
 ##
 terminationGracePeriodSeconds: ""
 ## @param updateStrategy.type Odoo deployment strategy type
-## @param updateStrategy.rollingUpdate Odoo deployment rolling update configuration parameters
+## @param updateStrategy.rollingUpdate [object,nullable] Odoo deployment rolling update configuration parameters
 ## ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
 ## NOTE: Set it to `Recreate` if you use a PV that cannot be mounted on multiple pods
 ## e.g:
@@ -346,7 +378,7 @@ terminationGracePeriodSeconds: ""
 ##
 updateStrategy:
   type: RollingUpdate
-  rollingUpdate: {}
+  rollingUpdate: null
 ## @param extraVolumes Optionally specify extra list of additional volumes for Odoo pods
 ##
 extraVolumes: []
@@ -381,7 +413,6 @@ sidecars: []
 ##    command: ['sh', '-c', 'copy addons from git and push to /bitnami/odoo/addons. Should work with extraVolumeMounts and extraVolumes']
 ##
 initContainers: []
-
 ## @section Traffic Exposure Parameters
 ##
 
@@ -402,7 +433,7 @@ service:
     http: ""
   ## @param service.sessionAffinity Control where client requests go, to the same pod or round-robin
   ## Values: ClientIP or None
-  ## ref: https://kubernetes.io/docs/user-guide/services/
+  ## ref: https://kubernetes.io/docs/concepts/services-networking/service/
   ##
   sessionAffinity: None
   ## @param service.sessionAffinityConfig Additional settings for the sessionAffinity
@@ -437,7 +468,6 @@ service:
   ## @param service.extraPorts Extra port to expose on Odoo service
   ##
   extraPorts: []
-
 ## Configure the ingress resource that allows you to access the Odoo installation
 ## ref: https://kubernetes.io/docs/concepts/services-networking/ingress/
 ##
@@ -542,12 +572,11 @@ ingress:
   ##             name: http
   ##
   extraRules: []
-
 ## @section Persistence Parameters
 ##
 
 ## Persistence Parameters
-## ref: https://kubernetes.io/docs/user-guide/persistent-volumes/
+## ref: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
 ##
 persistence:
   ## @param persistence.enabled Enable persistence using Persistent Volume Claims
@@ -587,7 +616,6 @@ persistence:
   ## @param persistence.existingClaim The name of an existing PVC to use for persistence
   ##
   existingClaim: ""
-
 ## 'volumePermissions' init container parameters
 ## Changes the owner and group of the persistent volume mount point to runAsUser:fsGroup values
 ##   based on the podSecurityContext/containerSecurityContext parameters
@@ -597,22 +625,35 @@ volumePermissions:
   ##
   enabled: false
   ## Init container's resource requests and limits
-  ## ref: https://kubernetes.io/docs/user-guide/compute-resources/
-  ## @param volumePermissions.resources.limits The resources limits for the init container
-  ## @param volumePermissions.resources.requests The requested resources for the init container
+  ## ref: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
+  ## @param volumePermissions.resourcesPreset Set container resources according to one common preset (allowed values: none, nano, small, medium, large, xlarge, 2xlarge). This is ignored if volumePermissions.resources is set (volumePermissions.resources is recommended for production).
+  ## More information: https://github.com/bitnami/charts/blob/main/bitnami/common/templates/_resources.tpl#L15
   ##
-  resources:
-    limits: {}
-    requests: {}
+  resourcesPreset: "none"
+  ## @param volumePermissions.resources Set container requests and limits for different resources like CPU or memory (essential for production workloads)
+  ## Example:
+  ## resources:
+  ##   requests:
+  ##     cpu: 2
+  ##     memory: 512Mi
+  ##   limits:
+  ##     cpu: 3
+  ##     memory: 1024Mi
+  ##
+  resources: {}
   ## Init container Container Security Context
   ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
   ## @param volumePermissions.containerSecurityContext.enabled Enable init container's Security Context
+  ## @param volumePermissions.containerSecurityContext.seLinuxOptions [object,nullable] Set SELinux options in container
   ## @param volumePermissions.containerSecurityContext.runAsUser Set init container's Security Context runAsUser
+  ## @param volumePermissions.containerSecurityContext.seccompProfile.type Set container's Security Context seccomp profile
   ##
   containerSecurityContext:
     enabled: true
+    seLinuxOptions: null
     runAsUser: 0
-
+    seccompProfile:
+      type: "RuntimeDefault"
 ## @section RBAC Parameters
 
 ## @param serviceAccount.create Specifies whether a ServiceAccount should be created
@@ -625,7 +666,6 @@ serviceAccount:
   name: ""
   automountServiceAccountToken: false
   annotations: {}
-
 ## @section Other Parameters
 ##
 
@@ -639,7 +679,6 @@ pdb:
   create: false
   minAvailable: 1
   maxUnavailable: ""
-
 ## Odoo Autoscaling configuration
 ## ref: https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
 ## @param autoscaling.enabled Enable Horizontal POD autoscaling for Odoo
@@ -654,7 +693,6 @@ autoscaling:
   maxReplicas: 11
   targetCPU: 50
   targetMemory: 50
-
 ## @section Database Parameters
 
 ## PostgreSQL chart configuration
@@ -700,7 +738,6 @@ externalDatabase:
   existingSecret: ""
   existingSecretPasswordKey: ""
   existingSecretPostgresPasswordKey: ""
-
 ## @section NetworkPolicy parameters
 ##
 

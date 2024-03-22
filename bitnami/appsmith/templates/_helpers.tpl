@@ -1,4 +1,9 @@
 {{/*
+Copyright VMware, Inc.
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
+{{/*
 Return the proper Appsmith image name
 */}}
 {{- define "appsmith.image" -}}
@@ -90,6 +95,19 @@ Create the name of the service account to use
 {{- end -}}
 
 {{/*
+Set the subdirectory for git connected apps to store their local repo
+*/}}
+{{- define "appsmith.gitDataPath" -}}
+{{- if and .Values.backend.persistence.enabled .Values.backend.persistence.gitDataPath -}}
+    {{- if .Values.backend.persistence.subPath -}}
+        {{- printf "%s/%s/%s" .Values.backend.persistence.mountPath .Values.backend.persistence.subPath .Values.backend.persistence.gitDataPath }}
+    {{- else -}}
+        {{- printf "%s/%s" .Values.backend.persistence.mountPath .Values.backend.persistence.gitDataPath }}
+    {{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Return Redis(TM) fullname
 */}}
 {{- define "appsmith.redis.fullname" -}}
@@ -176,7 +194,7 @@ Return the MongoDB Secret Name
   image: {{ template "appsmith.image" . }}
   imagePullPolicy: {{ .Values.image.pullPolicy }}
   {{- if .Values.backend.containerSecurityContext.enabled }}
-  securityContext: {{- omit .Values.backend.containerSecurityContext "enabled" | toYaml | nindent 4 }}
+  securityContext: {{- include "common.compatibility.renderSecurityContext" (dict "secContext" .Values.backend.containerSecurityContext "context" $) | nindent 4 }}
   {{- end }}
   command:
     - bash
@@ -220,7 +238,7 @@ Return the MongoDB Secret Name
   image: {{ template "appsmith.image" . }}
   imagePullPolicy: {{ .Values.image.pullPolicy }}
   {{- if .Values.backend.containerSecurityContext.enabled }}
-  securityContext: {{- omit .Values.backend.containerSecurityContext "enabled" | toYaml | nindent 4 }}
+  securityContext: {{- include "common.compatibility.renderSecurityContext" (dict "secContext" .Values.backend.containerSecurityContext "context" $) | nindent 4 }}
   {{- end }}
   command:
     - bash
@@ -262,7 +280,7 @@ Return the MongoDB Secret Name
   image: {{ template "appsmith.image" . }}
   imagePullPolicy: {{ .Values.image.pullPolicy }}
   {{- if .Values.rts.containerSecurityContext.enabled }}
-  securityContext: {{- omit .Values.rts.containerSecurityContext "enabled" | toYaml | nindent 4 }}
+  securityContext: {{- include "common.compatibility.renderSecurityContext" (dict "secContext" .Values.rts.containerSecurityContext "context" $) | nindent 4 }}
   {{- end }}
   command:
     - bash
@@ -324,8 +342,8 @@ Return the Redis Secret Name
 {{- define "appsmith.redis.secretName" -}}
 {{- if .Values.redis.enabled }}
     {{- printf "%s" (include "appsmith.redis.fullname" .) -}}
-{{- else if .Values.externalDatabase.existingSecret -}}
-    {{- printf "%s" .Values.externalDatabase.existingSecret -}}
+{{- else if .Values.externalRedis.existingSecret -}}
+    {{- printf "%s" .Values.externalRedis.existingSecret -}}
 {{- else -}}
     {{- printf "%s-externalredis" (include "common.names.fullname" .) | trunc 63 | trimSuffix "-" -}}
 {{- end -}}

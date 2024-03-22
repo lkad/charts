@@ -1,3 +1,8 @@
+/*
+ * Copyright VMware, Inc.
+ * SPDX-License-Identifier: APACHE-2.0
+ */
+
 const COMMAND_DELAY = 2000;
 
 for (const command of ['click']) {
@@ -20,7 +25,7 @@ Cypress.Commands.add(
     cy.get('#username').should('be.enabled').type(username);
     cy.get('#password').should('be.enabled').type(password);
     cy.contains('button', 'Sign In').click();
-    cy.contains('Secrets Engines').should('be.visible');
+    cy.contains('Secrets engines').should('be.visible');
   }
 );
 

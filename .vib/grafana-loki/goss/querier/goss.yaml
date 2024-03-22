@@ -1,10 +1,13 @@
+# Copyright VMware, Inc.
+# SPDX-License-Identifier: APACHE-2.0
+
 file:
   {{ .Vars.loki.dataDir }}/conf/loki.yaml:
     mode: "0644"
     filetype: file
     exists: true
     owner: root
-    contains:
+    contents:
     - "memcachedchunks:{{ .Vars.memcachedchunks.service.ports.memcached }}"
     - "memcachedfrontend:{{ .Vars.memcachedfrontend.service.ports.memcached }}"
     - "memcachedindexqueries:{{ .Vars.memcachedindexqueries.service.ports.memcached }}"

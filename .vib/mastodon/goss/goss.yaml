@@ -1,3 +1,6 @@
+# Copyright VMware, Inc.
+# SPDX-License-Identifier: APACHE-2.0
+
 command:
   {{- $uid := .Vars.web.containerSecurityContext.runAsUser }}
   {{- $gid := .Vars.web.podSecurityContext.fsGroup }}
@@ -6,6 +9,7 @@ command:
     # or the one randomly defined by openshift (larger values). Otherwise, the chart is still using the default value.
     exec: if [ $(id -u) -lt {{ $uid }} ] || [ $(id -G | awk '{print $2}') -lt {{ $gid }} ]; then exit 1; fi
     exit-status: 0
+  {{- if .Vars.web.containerSecurityContext.enabled }}
   check-no-capabilities:
     exec: cat /proc/1/status
     exit-status: 0
@@ -15,6 +19,7 @@ command:
     - "CapEff:	0000000000000000"
     - "CapBnd:	0000000000000000"
     - "CapAmb:	0000000000000000"
+  {{- end }}
   conf-vars:
     exec: |
       bash -ec ". /opt/bitnami/scripts/mastodon-env.sh && env"
@@ -27,7 +32,7 @@ command:
     - /REDIS_HOST.*mastodon-redis/
     - /REDIS_PORT.*{{ .Vars.redis.master.service.ports.redis }}/
     - /S3_ENDPOINT.*http://mastodon-minio:{{ .Vars.minio.service.ports.api }}/
-  {{ if .Vars.serviceAccount.automountServiceAccountToken }}
+  {{ if .Vars.web.automountServiceAccountToken }}
   check-sa:
     exec: cat /var/run/secrets/kubernetes.io/serviceaccount/token | cut -d '.' -f 2 | xargs -I '{}' echo '{}====' | fold -w 4 | sed '$ d' | tr -d '\n' | base64 -d
     exit-status: 0

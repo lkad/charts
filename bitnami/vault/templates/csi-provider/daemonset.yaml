@@ -1,15 +1,19 @@
+{{- /*
+Copyright VMware, Inc.
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
 {{- if .Values.csiProvider.enabled }}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: {{ template "vault.csi-provider.fullname" . }}
   namespace: {{ include "common.names.namespace" . | quote }}
-  labels: {{- include "common.labels.standard" . | nindent 4 }}
+  {{- $versionLabel := dict "app.kubernetes.io/version" ( include "common.images.version" ( dict "imageRoot" .Values.csiProvider.image "chart" .Chart ) ) }}
+  {{- $labels := include "common.tplvalues.merge" ( dict "values" ( list .Values.commonLabels $versionLabel ) "context" . ) }}
+  labels: {{- include "common.labels.standard" ( dict "customLabels" $labels "context" $ ) | nindent 4 }}
     app.kubernetes.io/part-of: vault
     app.kubernetes.io/component: csi-provider
-    {{- if .Values.commonLabels }}
-    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
-    {{- end }}
   {{- if .Values.commonAnnotations }}
   annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
   {{- end }}
@@ -17,8 +21,9 @@ spec:
   {{- if .Values.csiProvider.updateStrategy }}
   updateStrategy: {{- toYaml .Values.csiProvider.updateStrategy | nindent 4 }}
   {{- end }}
+  {{- $podLabels := include "common.tplvalues.merge" ( dict "values" ( list .Values.csiProvider.podLabels .Values.commonLabels $versionLabel ) "context" . ) }}
   selector:
-    matchLabels: {{- include "common.labels.matchLabels" . | nindent 6 }}
+    matchLabels: {{- include "common.labels.matchLabels" ( dict "customLabels" $podLabels "context" $ ) | nindent 6 }}
       app.kubernetes.io/part-of: vault
       app.kubernetes.io/component: csi-provider
   template:
@@ -26,18 +31,13 @@ spec:
       {{- if .Values.csiProvider.podAnnotations }}
       annotations: {{- include "common.tplvalues.render" (dict "value" .Values.csiProvider.podAnnotations "context" $) | nindent 8 }}
       {{- end }}
-      labels: {{- include "common.labels.standard" . | nindent 8 }}
+      labels: {{- include "common.labels.standard" ( dict "customLabels" $podLabels "context" $ ) | nindent 8 }}
         app.kubernetes.io/part-of: vault
         app.kubernetes.io/component: csi-provider
-        {{- if .Values.csiProvider.podLabels }}
-        {{- include "common.tplvalues.render" (dict "value" .Values.csiProvider.podLabels "context" $) | nindent 8 }}
-        {{- end }}
-        {{- if .Values.commonLabels }}
-        {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 8 }}
-        {{- end }}
     spec:
       serviceAccountName: {{ template "vault.csi-provider.serviceAccountName" . }}
       {{- include "vault.imagePullSecrets" . | nindent 6 }}
+      automountServiceAccountToken: {{ .Values.csiProvider.automountServiceAccountToken }}
       {{- if .Values.csiProvider.hostAliases }}
       hostAliases: {{- include "common.tplvalues.render" (dict "value" .Values.csiProvider.hostAliases "context" $) | nindent 8 }}
       {{- end }}
@@ -45,8 +45,8 @@ spec:
       affinity: {{- include "common.tplvalues.render" ( dict "value" .Values.csiProvider.affinity "context" $) | nindent 8 }}
       {{- else }}
       affinity:
-        podAffinity: {{- include "common.affinities.pods" (dict "type" .Values.csiProvider.podAffinityPreset "component" "csi-provider" "context" $) | nindent 10 }}
-        podAntiAffinity: {{- include "common.affinities.pods" (dict "type" .Values.csiProvider.podAntiAffinityPreset "component" "csi-provider" "context" $) | nindent 10 }}
+        podAffinity: {{- include "common.affinities.pods" (dict "type" .Values.csiProvider.podAffinityPreset "component" "csi-provider" "customLabels" $podLabels "context" $) | nindent 10 }}
+        podAntiAffinity: {{- include "common.affinities.pods" (dict "type" .Values.csiProvider.podAntiAffinityPreset "component" "csi-provider" "customLabels" $podLabels "context" $) | nindent 10 }}
         nodeAffinity: {{- include "common.affinities.nodes" (dict "type" .Values.csiProvider.nodeAffinityPreset.type "key" .Values.csiProvider.nodeAffinityPreset.key "values" .Values.csiProvider.nodeAffinityPreset.values) | nindent 10 }}
       {{- end }}
       {{- if .Values.csiProvider.nodeSelector }}
@@ -65,7 +65,7 @@ spec:
       topologySpreadConstraints: {{- include "common.tplvalues.render" (dict "value" .Values.csiProvider.topologySpreadConstraints "context" .) | nindent 8 }}
       {{- end }}
       {{- if .Values.csiProvider.podSecurityContext.enabled }}
-      securityContext: {{- omit .Values.csiProvider.podSecurityContext "enabled" | toYaml | nindent 8 }}
+      securityContext: {{- include "common.compatibility.renderSecurityContext" (dict "secContext" .Values.csiProvider.podSecurityContext "context" $) | nindent 8 }}
       {{- end }}
       {{- if .Values.csiProvider.terminationGracePeriodSeconds }}
       terminationGracePeriodSeconds: {{ .Values.csiProvider.terminationGracePeriodSeconds }}
@@ -79,7 +79,7 @@ spec:
           image: {{ template "vault.csi-provider.image" . }}
           imagePullPolicy: {{ .Values.csiProvider.image.pullPolicy }}
           {{- if .Values.csiProvider.provider.containerSecurityContext.enabled }}
-          securityContext: {{- omit .Values.csiProvider.provider.containerSecurityContext "enabled" | toYaml | nindent 12 }}
+          securityContext: {{- include "common.compatibility.renderSecurityContext" (dict "secContext" .Values.csiProvider.provider.containerSecurityContext "context" $) | nindent 12 }}
           {{- end }}
           {{- if .Values.diagnosticMode.enabled }}
           command: {{- include "common.tplvalues.render" (dict "value" .Values.diagnosticMode.command "context" $) | nindent 12 }}
@@ -113,6 +113,8 @@ spec:
             {{- end }}
           {{- if .Values.csiProvider.provider.resources }}
           resources: {{- toYaml .Values.csiProvider.provider.resources | nindent 12 }}
+          {{- else if ne .Values.csiProvider.provider.resourcesPreset "none" }}
+          resources: {{- include "common.resources.preset" (dict "type" .Values.csiProvider.provider.resourcesPreset) | nindent 12 }}
           {{- end }}
           ports:
             - name: http-health
@@ -158,7 +160,7 @@ spec:
           image: {{ template "vault.csi-provider.image" . }}
           imagePullPolicy: {{ .Values.csiProvider.image.pullPolicy }}
           {{- if .Values.csiProvider.agent.containerSecurityContext.enabled }}
-          securityContext: {{- omit .Values.csiProvider.agent.containerSecurityContext "enabled" | toYaml | nindent 12 }}
+          securityContext: {{- include "common.compatibility.renderSecurityContext" (dict "secContext" .Values.csiProvider.agent.containerSecurityContext "context" $) | nindent 12 }}
           {{- end }}
           {{- if .Values.diagnosticMode.enabled }}
           command: {{- include "common.tplvalues.render" (dict "value" .Values.diagnosticMode.command "context" $) | nindent 12 }}
@@ -192,6 +194,8 @@ spec:
             {{- end }}
           {{- if .Values.csiProvider.agent.resources }}
           resources: {{- toYaml .Values.csiProvider.agent.resources | nindent 12 }}
+          {{- else if ne .Values.csiProvider.agent.resourcesPreset "none" }}
+          resources: {{- include "common.resources.preset" (dict "type" .Values.csiProvider.agent.resourcesPreset) | nindent 12 }}
           {{- end }}
           ports:
             - name: tcp
